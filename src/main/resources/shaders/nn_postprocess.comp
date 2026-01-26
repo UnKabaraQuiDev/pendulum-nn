@@ -1,22 +1,24 @@
 #version 450
 
+#define PI %PI%
+
 layout(local_size_x = %LOCAL_SIZE_X%, local_size_y = %LOCAL_SIZE_Y%, local_size_z = %LOCAL_SIZE_Z%) in;
 
-layout(std430, binding = 2) readonly buffer NNOutput {
+layout(std430, binding = 0) readonly buffer NNOutput {
 	float nnOutput[];
 };
 
-layout(std430, binding = 3) buffer PhysicsState {
+layout(std430, binding = 1) buffer PhysicsState {
 	vec4 states[];
 //	vec4 position; // x, angle, 0, 0
 //	vec4 velocity; // vx, angleVel, 0, 0
 };
 
-layout(std430, binding = 4) writeonly buffer Transforms {
+layout(std430, binding = 2) writeonly buffer Transforms {
 	mat4 model[];
 };
 
-layout(std430, binding = 0) buffer NNInput {
+layout(std430, binding = 3) buffer NNInput {
 	float nnInput[];
 };
 
@@ -26,24 +28,47 @@ uniform int instanceCount;
 uniform float gravity;
 uniform float pendulumLength;
 uniform vec2 bounds;
+uniform float friction;
+uniform float angularFriction;
 
 uint flatIndex;
 vec4 position;
 vec4 velocity;
 
+void computeCart(float cartAcc) {
+	float v = velocity.x;
+	if (abs(v) < 1e-4) v = 0.0;
+	
+	v += (cartAcc - friction * v) * dTime;
+	position.x += v * dTime;
+	position.x = 0; // clamp(position.x, bounds.x, bounds.y);
+	velocity.x = v;
+}
+
 void computePendulum(float cartAcc) {
+	position.y = mod(position.y + PI, 2*PI) - PI;
+
 	float angle = position.y;
 	float angleVel = velocity.y;
 	
 	float alpha = (cartAcc * cos(angle) - gravity * sin(angle)) / pendulumLength;
 	
-	velocity.y += alpha * dTime;
+	velocity.y += (alpha - angularFriction * velocity.y) * dTime;
 	position.y += velocity.y * dTime;
 }
 
-void computeCart(float cartAcc) {
-	velocity[flatIndex].x += cartAcc * dTime;
-	position[flatIndex].x += clamp(velocity[flatIndex].x * dTime, bounds.x, bounds.y);
+void computeTransform() {
+    float angle = position.y;
+    float x = clamp(position.x, -1, 1);
+    float c = cos(angle);
+    float s = sin(angle);
+
+    model[flatIndex] = mat4(
+        c,   0,  -s,   0,   // column 0
+        0,   1,   0,   0,   // column 1
+        s,   0,   c,   0,   // column 2
+        x,   0,   0,   1    // column 3 (translation)
+    );
 }
 
 void main() {
@@ -62,15 +87,10 @@ void main() {
 	computeCart(acc);
 	computePendulum(acc);
 
-	model[flatIndex] = mat4(
-		1,0,0,0,
-		0,1,0,0,
-		0,0,1,0,
-		position[flatIndex].x,
-		0,
-		0,
-		1
-	);
+	computeTransform();
+
+	states[flatIndex * 2 + 0] = position;
+	states[flatIndex * 2 + 1] = velocity;
 
 	/*
 		INPUT LAYOUT:

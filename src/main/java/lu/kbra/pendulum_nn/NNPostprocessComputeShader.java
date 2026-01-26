@@ -18,6 +18,8 @@ public class NNPostprocessComputeShader extends ComputeShader {
 	public static final String GRAVITY = "gravity";
 	public static final String PENDULUM_LENGTH = "pendulumLength";
 	public static final String BOUNDS = "bounds";
+	public static final String FRICTION = "friction";
+	public static final String ANGULAR_FRICTION = "angularFriction";
 
 	public NNPostprocessComputeShader() {
 		super(new ComputeShaderPart("classpath:/shaders/nn_postprocess.comp", getBuildingDeps()), LOCAL_SIZE);
@@ -25,6 +27,7 @@ public class NNPostprocessComputeShader extends ComputeShader {
 
 	private static Map<String, Object> getBuildingDeps() {
 		final Map<String, Object> buildingDeps = getBaseBuildingDeps(LOCAL_SIZE);
+		buildingDeps.put("%PI%", Math.PI);
 		return buildingDeps;
 	}
 
@@ -36,6 +39,8 @@ public class NNPostprocessComputeShader extends ComputeShader {
 		createUniform(GRAVITY);
 		createUniform(PENDULUM_LENGTH);
 		createUniform(BOUNDS);
+		createUniform(FRICTION);
+		createUniform(ANGULAR_FRICTION);
 	}
 
 }
