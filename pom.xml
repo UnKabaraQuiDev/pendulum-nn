@@ -4,8 +4,14 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>lu.kbra</groupId>
-	<artifactId>pendulum_ai</artifactId>
+	<artifactId>pendulum-nn</artifactId>
 	<version>0.1</version>
+
+	<properties>
+		<java.version>17</java.version>
+		<maven.compiler.source>${java.version}</maven.compiler.source>
+		<maven.compiler.target>${java.version}</maven.compiler.target>
+	</properties>
 
 	<dependencies>
 		<dependency>
@@ -14,6 +20,5 @@
 			<version>0.1</version>
 		</dependency>
 	</dependencies>
-
 
 </project>

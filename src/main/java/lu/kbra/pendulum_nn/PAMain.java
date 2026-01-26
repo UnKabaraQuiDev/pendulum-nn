@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_ai;
+package lu.kbra.pendulum_nn;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,7 +23,7 @@ public class PAMain {
 
 		final GameLogic gameLogic = new PALogic();
 
-		final GameEngine engine = new GameEngine("pendulum-ai", gameLogic, new WindowOptions(props, "windowOptions"));
+		final GameEngine engine = new GameEngine("pendulum-nn", gameLogic, new WindowOptions(props, "windowOptions"));
 		engine.start();
 	}
 
