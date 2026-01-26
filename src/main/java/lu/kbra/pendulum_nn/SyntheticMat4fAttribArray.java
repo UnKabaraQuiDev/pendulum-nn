@@ -43,7 +43,7 @@ public class SyntheticMat4fAttribArray extends Mat4fAttribArray {
 	public void init() {
 		bind();
 
-		GL_W.glBufferData(bufferType.getGlId(), length, iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
+		GL_W.glBufferData(bufferType.getGlId(), length * getElementByteSize(), iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
 	}
 
 	@Override
@@ -71,7 +71,7 @@ public class SyntheticMat4fAttribArray extends Mat4fAttribArray {
 //			GL_W.glBufferSubData(bufferType.getGlId(), 0, nPos);
 			return;
 		} else {
-			GL_W.glBufferData(bufferType.getGlId(), newSize, iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
+			GL_W.glBufferData(bufferType.getGlId(), newSize * getElementByteSize(), iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
 		}
 
 		super.length = newSize;

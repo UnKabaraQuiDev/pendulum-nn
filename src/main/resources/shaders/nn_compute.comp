@@ -21,12 +21,16 @@ layout(std430, binding = 3) writeonly buffer NNOutput {
 	float nnOutput[];
 };
 
-uniform int inputSize;			   // number of inputs per instance
-uniform int layerCount;			  // number of layers
-uniform int layerSize[MAX_LAYERS];   // neurons per layer
-uniform int weightOffsetPerInstance; // total weights per instance
-uniform int biasOffsetPerInstance;   // total biases per instance
+uniform int inputSize;					// number of inputs per instance
+uniform int layerCount;					// number of layers
+uniform int layerSize[MAX_LAYERS];		// neurons per layer
+uniform int weightOffsetPerInstance;	// total weights per instance
+uniform int biasOffsetPerInstance;		// total biases per instance
 uniform int instanceCount;
+
+float activation(float a) {
+	return max(a, 0f);
+}
 
 void main() {
 	uvec3 gid = gl_GlobalInvocationID;
@@ -61,7 +65,7 @@ void main() {
 					weightOffset + o * prevSize + i
 				] * actA[i];
 			}
-			actB[o] = max(sum, 0.0); // ReLU
+			actB[o] = activation(sum);
 		}
 
 		// advance offsets

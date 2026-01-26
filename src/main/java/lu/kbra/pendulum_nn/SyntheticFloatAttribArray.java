@@ -41,7 +41,7 @@ public class SyntheticFloatAttribArray extends FloatAttribArray {
 	public void init() {
 		bind();
 
-		GL_W.glBufferData(bufferType.getGlId(), length, iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
+		GL_W.glBufferData(bufferType.getGlId(), length * getElementByteSize(), iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
 
 		if (bufferType == BufferType.ARRAY) {
 			GL_W.glVertexAttribPointer(index, getElementComponentCount(), GL_W.GL_FLOAT, false, getElementByteSize(),
@@ -75,7 +75,7 @@ public class SyntheticFloatAttribArray extends FloatAttribArray {
 //			GL_W.glBufferSubData(bufferType.getGlId(), 0, nPos);
 			return;
 		} else {
-			GL_W.glBufferData(bufferType.getGlId(), newSize, iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
+			GL_W.glBufferData(bufferType.getGlId(), newSize * getElementByteSize(), iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
 		}
 
 		super.length = newSize;
