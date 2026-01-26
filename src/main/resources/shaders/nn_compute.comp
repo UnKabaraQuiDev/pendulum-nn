@@ -1,0 +1,69 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+#define MAX_LAYERS 8
+#define MAX_NEURONS 64
+
+layout(std430, binding = 0) readonly buffer NNInput {
+	float nnInput[];
+};
+
+layout(std430, binding = 1) readonly buffer NNParams {
+	float weights[];
+	float biases[];
+};
+
+layout(std430, binding = 2) writeonly buffer NNOutput {
+	float nnOutput[];
+};
+
+uniform int inputSize;
+uniform int layerCount;
+uniform int layerSize[MAX_LAYERS];
+
+void main() {
+	uint id = gl_GlobalInvocationID.x;
+
+	float actA[MAX_NEURONS];
+	float actB[MAX_NEURONS];
+
+	// load input
+	uint inBase = id * inputSize;
+	for (int i = 0; i < inputSize; ++i)
+		actA[i] = nnInput[inBase + i];
+
+	int prevSize = inputSize;
+	int weightOffset = 0;
+	int biasOffset = 0;
+
+	// forward pass
+	for (int l = 0; l < layerCount; ++l) {
+		int currSize = layerSize[l];
+
+		for (int o = 0; o < currSize; ++o) {
+			float sum = biases[biasOffset + o];
+			for (int i = 0; i < prevSize; ++i) {
+				sum += weights[
+					weightOffset + o * prevSize + i
+				] * actA[i];
+			}
+			actB[o] = max(sum, 0.0);
+		}
+
+		// advance offsets
+		weightOffset += currSize * prevSize;
+		biasOffset   += currSize;
+
+		// swap buffers
+		for (int i = 0; i < currSize; ++i)
+			actA[i] = actB[i];
+
+		prevSize = currSize;
+	}
+
+	// write output (last layer)
+	uint outBase = id * prevSize;
+	for (int i = 0; i < prevSize; ++i)
+		nnOutput[outBase + i] = actA[i];
+}

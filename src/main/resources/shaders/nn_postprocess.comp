@@ -1,0 +1,56 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(std430, binding = 2) readonly buffer NNOutput {
+	float nnOutput[];
+};
+
+layout(std430, binding = 3) buffer PhysicsState {
+	vec4 position; // x, angle, 0, 0
+	vec4 velocity; // vx, vAngle, 0, 0
+};
+
+layout(std430, binding = 4) writeonly buffer Transforms {
+	mat4 model[];
+};
+
+layout(std430, binding = 0) buffer NNInput {
+	float nnInput[];
+};
+
+uniform float dTime;
+uniform int outputSize;
+uniform int inputSize;
+
+void main() {
+	uint id = gl_GlobalInvocationID.x;
+
+	// read NN output
+	uint outBase = id * outputSize;
+	vec3 force = vec3(
+		nnOutput[outBase + 0],
+		nnOutput[outBase + 1],
+		nnOutput[outBase + 2]
+	);
+
+	// physics
+	velocity[id].xyz += force * dTime;
+	position[id].xyz += velocity[id].xyz * dTime;
+
+	// write transform
+	model[id] = mat4(
+		1,0,0,0,
+		0,1,0,0,
+		0,0,1,0,
+		position[id].x,
+		position[id].y,
+		position[id].z,
+		1
+	);
+
+	// prepare next NN input
+	uint inBase = id * inputSize;
+	nnInput[inBase + 0] = position[id].x;
+	nnInput[inBase + 1] = velocity[id].x;
+}
