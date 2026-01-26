@@ -1,14 +1,15 @@
 #version 450
 
-layout(local_size_x = 64) in;
+layout(local_size_x = %LOCAL_SIZE_X%, local_size_y = %LOCAL_SIZE_Y%, local_size_z = %LOCAL_SIZE_Z%) in;
 
 layout(std430, binding = 2) readonly buffer NNOutput {
 	float nnOutput[];
 };
 
 layout(std430, binding = 3) buffer PhysicsState {
-	vec4 position; // x, angle, 0, 0
-	vec4 velocity; // vx, vAngle, 0, 0
+	vec4 states[];
+//	vec4 position; // x, angle, 0, 0
+//	vec4 velocity; // vx, angleVel, 0, 0
 };
 
 layout(std430, binding = 4) writeonly buffer Transforms {
@@ -20,37 +21,69 @@ layout(std430, binding = 0) buffer NNInput {
 };
 
 uniform float dTime;
-uniform int outputSize;
 uniform int inputSize;
+uniform int instanceCount;
+uniform float gravity;
+uniform float pendulumLength;
+uniform vec2 bounds;
+
+uint flatIndex;
+vec4 position;
+vec4 velocity;
+
+void computePendulum(float cartAcc) {
+	float angle = position.y;
+	float angleVel = velocity.y;
+	
+	float alpha = (cartAcc * cos(angle) - gravity * sin(angle)) / pendulumLength;
+	
+	velocity.y += alpha * dTime;
+	position.y += velocity.y * dTime;
+}
+
+void computeCart(float cartAcc) {
+	velocity[flatIndex].x += cartAcc * dTime;
+	position[flatIndex].x += clamp(velocity[flatIndex].x * dTime, bounds.x, bounds.y);
+}
 
 void main() {
-	uint id = gl_GlobalInvocationID.x;
+	uvec3 gid = gl_GlobalInvocationID;
+	flatIndex = gid.x
+		+ gid.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x
+		+ gid.z * gl_NumWorkGroups.x * gl_WorkGroupSize.x * gl_NumWorkGroups.y * gl_WorkGroupSize.y;
+	if (flatIndex >= instanceCount)
+		return;
+		
+	position = states[flatIndex * 2 + 0];
+	velocity = states[flatIndex * 2 + 1];
 
-	// read NN output
-	uint outBase = id * outputSize;
-	vec3 force = vec3(
-		nnOutput[outBase + 0],
-		nnOutput[outBase + 1],
-		nnOutput[outBase + 2]
-	);
+	float acc = nnOutput[flatIndex];
 
-	// physics
-	velocity[id].xyz += force * dTime;
-	position[id].xyz += velocity[id].xyz * dTime;
+	computeCart(acc);
+	computePendulum(acc);
 
-	// write transform
-	model[id] = mat4(
+	model[flatIndex] = mat4(
 		1,0,0,0,
 		0,1,0,0,
 		0,0,1,0,
-		position[id].x,
-		position[id].y,
-		position[id].z,
+		position[flatIndex].x,
+		0,
+		0,
 		1
 	);
 
-	// prepare next NN input
-	uint inBase = id * inputSize;
-	nnInput[inBase + 0] = position[id].x;
-	nnInput[inBase + 1] = velocity[id].x;
+	/*
+		INPUT LAYOUT:
+		 * x
+		 * vX
+		 * angle
+		 * vAngle
+		 * relativeX
+	*/
+	uint inBase = flatIndex * inputSize;
+	nnInput[inBase + 0] = position.x;
+	nnInput[inBase + 1] = velocity.x;
+	nnInput[inBase + 2] = position.y;
+	nnInput[inBase + 3] = velocity.y;
+	nnInput[inBase + 4] = (position.x - bounds.x) / (bounds.y - bounds.x) * 2 - 1; // [-1 .. 1]
 }
