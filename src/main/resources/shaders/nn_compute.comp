@@ -73,6 +73,8 @@ void main() {
 					weightOffset + o * prevSize + i
 				] * actA[i];
 			}
+			if (isnan(sum) || isinf(sum))
+				sum = 0.0;
 			actB[o] = activation(sum);
 		}
 

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.DoubleSummaryStatistics;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.IntStream;
 
 import org.joml.Vector2f;
@@ -43,12 +44,13 @@ public class PALogic extends GameLogic {
 	public static final int GRADE_IDX = InstanceEmitter.FIRST_BUFFER_INDEX;
 
 	public static final float FIXED_D_TIME = 1f / 60;
-	public static final int MAX_ITERATIONS = 60 * 10;
+	public static final int MAX_ITERATIONS = 60 * 60;
 	public static final int TOP_AGENTS = 5;
 	public static final int AGENT_BATCHES = 1;
-	public static final int MAX_AGENTS = 1000;
+	public static final int MAX_AGENTS = 10;
 
-	private static final float MUTATE_STD_DEV = 0.1f;
+	public static final float MUTATE_RATE = 0.1f;
+	public static final float MUTATE_STRENGTH = 0.1f;
 
 	public static int AGENT_PER_BATCHES;
 
@@ -166,7 +168,7 @@ public class PALogic extends GameLogic {
 				inst.getWeights()[j] = (float) (Math.random() * 2 - 1);
 			}
 			for (int j = 0; j < inst.getBiases().length; j++) {
-				inst.getBiases()[j] = (float) (Math.random() * 2 - 1) * MUTATE_STD_DEV;
+				inst.getBiases()[j] = (float) (Math.random() * 2 - 1) * MUTATE_STRENGTH;
 			}
 			instances.add(nInst);
 		}
@@ -192,7 +194,7 @@ public class PALogic extends GameLogic {
 		scene.getCamera().lookAt(scene.getCamera().getPosition(), GameEngine.ZERO, GameEngine.Z_POS);
 		scene.getCamera().updateMatrix();
 
-//		startSelfRecurringTasks();
+		startSelfRecurringTasks();
 	}
 
 	private void startSelfRecurringTasks() {
@@ -202,7 +204,7 @@ public class PALogic extends GameLogic {
 	}
 
 	private void resetNNs() {
-		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(0, (float) Math.PI / 4 * 3, 0, 0), new Vector4f(0, 0, 0, 0) });
+		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(0, (float) Math.PI, 0, 0), new Vector4f(0, 0, 0, 0) });
 		clear(transformsValueArray);
 		clear(gradeNeuronsValueArray);
 		clear(inputNeuronsValueArray);
@@ -215,7 +217,7 @@ public class PALogic extends GameLogic {
 	private void upload(List<NNInstance> instances) {
 		assert struct.computeNeuronCount() < NNComputeComputeShader.MAX_NEURONS;
 		assert struct.getInnerLayers().length < NNComputeComputeShader.MAX_LAYERS;
-		
+
 		final float[] weights = PCUtils.pack(instances.parallelStream().map(NNInstance::getWeights).toArray(float[][]::new));
 		assert weights.length == struct.computeWeightCount() * instanceCount : weights.length + " for " + instanceCount + " & "
 				+ instances.size() + " = " + (struct.computeWeightCount() * instanceCount);
@@ -261,6 +263,15 @@ public class PALogic extends GameLogic {
 			System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
 					+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
 		}
+		{
+			final float[] outs = physicsVec4sValueArray.read(0, physicsVec4sValueArray.getLength());
+			System.err.println("Physics: " + Arrays.toString(outs));
+			final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(outs))
+					.mapToDouble(c -> (double) (Float) (Object) c)
+					.summaryStatistics();
+			System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+					+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
+		}
 
 		final float[] arr = gradeNeuronsValueArray.read(0, gradeNeuronsValueArray.getLength());
 		System.err.println("Grades: " + Arrays.toString(arr));
@@ -291,17 +302,26 @@ public class PALogic extends GameLogic {
 
 		done.setValue(false);
 		iterationCount.set(0);
-//		startSelfRecurringTasks();
+		startSelfRecurringTasks();
 	}
 
-	private NNInstance mutate(NNInstance clone) {
-		for (int i = 0; i < clone.getWeights().length; i++) {
-			clone.getWeights()[i] += (Math.random() * 2 - 1) * MUTATE_STD_DEV;
+	Random rnd = new Random();
+
+	private NNInstance mutate(NNInstance nn) {
+		// Mutate weights
+		for (int i = 0; i < nn.weights.length; i++) {
+			if (rnd.nextFloat() < MUTATE_RATE) {
+				nn.weights[i] = PCUtils.clamp(-10f, 10f, nn.weights[i] + (float) rnd.nextGaussian() * MUTATE_STRENGTH);
+			}
 		}
-		for (int i = 0; i < clone.getBiases().length; i++) {
-			clone.getBiases()[i] += (Math.random() * 2 - 1) * MUTATE_STD_DEV;
+
+		// Mutate biases
+		for (int i = 0; i < nn.biases.length; i++) {
+			if (rnd.nextFloat() < MUTATE_RATE) {
+				nn.biases[i] += rnd.nextGaussian() * MUTATE_STRENGTH;
+			}
 		}
-		return clone;
+		return nn;
 	}
 
 	private void compute() {
@@ -395,15 +415,15 @@ public class PALogic extends GameLogic {
 
 	@Override
 	public void render(float dTime) {
-		compute();
-		postProcess(dTime);
-		if (iterationCount.increment() < MAX_ITERATIONS) {
-			iterationFrame.increment();
-		} else {
-			readBack();
-		}
+//		compute();
+//		postProcess(dTime);
+//		if (iterationCount.increment() < MAX_ITERATIONS) {
+//			iterationFrame.increment();
+//		} else {
+//			readBack();
+//		}
 
-//		System.err.println(iterationFrame.getValue() + " / " + iterationCount.getValue() + "/" + MAX_ITERATIONS);
+		System.err.println(iterationFrame.getValue() + " / " + iterationCount.getValue() + "/" + MAX_ITERATIONS);
 		iterationFrame.set(0);
 
 		GL_W.glViewport(0, 0, window.getWidth(), window.getHeight());
