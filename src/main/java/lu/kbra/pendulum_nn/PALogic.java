@@ -52,6 +52,9 @@ public class PALogic extends GameLogic {
 	public static final float MUTATE_RATE = 0.1f;
 	public static final float MUTATE_STRENGTH = 0.1f;
 
+	public static final float GRAVITY = 1f;
+	public static final float STARTING_ANGLE = (float) Math.PI / 1000 * 999;
+
 	public static int AGENT_PER_BATCHES;
 
 	protected ClearFloatComputeShader clearFloatComputeShader;
@@ -77,7 +80,7 @@ public class PALogic extends GameLogic {
 	protected SyntheticMat4fAttribArray transformsValueArray;
 	protected SyntheticFloatAttribArray gradeNeuronsValueArray;
 
-	protected final NNStructure struct = new NNStructure(5, new int[] { 5, 4, 3, 2 }, 1, ActivationFunction.TANH);
+	protected final NNStructure struct = new NNStructure(5, new int[] { 1, 1, 1 }, 1, ActivationFunction.TANH);
 	protected int instanceCount = 10;
 
 //	protected NNFrame frame = new NNFrame();
@@ -204,7 +207,7 @@ public class PALogic extends GameLogic {
 	}
 
 	private void resetNNs() {
-		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(0, (float) Math.PI, 0, 0), new Vector4f(0, 0, 0, 0) });
+		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(0, STARTING_ANGLE, 0, 0), new Vector4f(0, 0, 0, 0) });
 		clear(transformsValueArray);
 		clear(gradeNeuronsValueArray);
 		clear(inputNeuronsValueArray);
@@ -371,7 +374,7 @@ public class PALogic extends GameLogic {
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.D_TIME, dTime);
 //		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.INPUT_SIZE, struct.getInputCount());
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.INSTANCE_COUNT, instanceCount);
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.GRAVITY, 9.81f);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.GRAVITY, GRAVITY);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.PENDULUM_LENGTH, 1f);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.BOUNDS, new Vector2f(-1, 1));
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.FRICTION, 0.3f);
