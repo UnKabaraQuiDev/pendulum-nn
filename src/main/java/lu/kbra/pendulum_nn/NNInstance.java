@@ -32,8 +32,8 @@ public class NNInstance {
 	}
 
 	@Override
-	protected Object clone() throws CloneNotSupportedException {
-		return new NNInstance(structure, weights, biases);
+	public NNInstance clone() {
+		return new NNInstance(structure, weights.clone(), biases.clone());
 	}
 
 }

@@ -27,7 +27,7 @@ layout(std430, binding = 9) buffer NNGrade {
 };
 
 uniform float dTime;
-uniform int inputSize;
+// uniform int inputSize;
 uniform int instanceCount;
 uniform float gravity;
 uniform float pendulumLength;
@@ -94,7 +94,7 @@ float bell(float x, vec2 size) {
 }
 
 float grade() {
-	return bell(position.x, bounds) * bell(position.y, vec2(-PI, PI));
+	return bell(position.x, bounds) * (1.0 - bell(position.y, vec2(-PI, PI))); // (1-bell(abs(abs(position.y) - PI), vec2(0, PI)));
 }
 
 void main() {
@@ -128,7 +128,7 @@ void main() {
 		 * vAngle
 		 * relativeX
 	*/
-	uint inBase = flatIndex * inputSize;
+	uint inBase = flatIndex * 5;
 	nnInput[inBase + 0] = position.x;
 	nnInput[inBase + 1] = velocity.x;
 	nnInput[inBase + 2] = position.y;
