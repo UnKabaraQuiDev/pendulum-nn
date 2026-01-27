@@ -24,6 +24,7 @@ public class LimitedInstanceEmitter extends InstanceEmitter {
 
 	public LimitedInstanceEmitter(String name, Mesh mesh, int count, Mat4fAttribArray baseTransform, AttribArray... attribs) {
 		super(name, mesh, count, baseTransform, attribs);
+		this.particleCount = count;
 	}
 
 	@Override

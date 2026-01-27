@@ -29,7 +29,7 @@ uniform int biasOffsetPerInstance;		// total biases per instance
 uniform int instanceCount;
 
 float activation(float a) {
-	return max(a, 0f);
+	return max(a, 0.0);
 }
 
 void main() {

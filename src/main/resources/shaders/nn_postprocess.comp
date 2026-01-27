@@ -10,8 +10,8 @@ layout(std430, binding = 0) readonly buffer NNOutput {
 
 layout(std430, binding = 1) buffer PhysicsState {
 	vec4 states[];
-//	vec4 position; // x, angle, 0, 0
-//	vec4 velocity; // vx, angleVel, 0, 0
+// x, angle, 0, 0
+// vx, angleVel, 0, 0
 };
 
 layout(std430, binding = 2) writeonly buffer Transforms {
@@ -35,14 +35,25 @@ uint flatIndex;
 vec4 position;
 vec4 velocity;
 
-void computeCart(float cartAcc) {
-	float v = velocity.x;
-	if (abs(v) < 1e-4) v = 0.0;
-	
-	v += (cartAcc - friction * v) * dTime;
-	position.x += v * dTime;
-	position.x = 0; // clamp(position.x, bounds.x, bounds.y);
-	velocity.x = v;
+void computeCart(inout float cartAcc) {
+    float v = velocity.x;
+
+    if (abs(v) < 1e-4) v = 0.0;
+
+    bool blocked =
+        (position.x <= bounds.x && cartAcc < 0.0) ||
+        (position.x >= bounds.y && cartAcc > 0.0);
+
+    if (blocked) {
+        cartAcc = 0.0;
+        v = 0.0;
+    }
+
+    v += (cartAcc - friction * v) * dTime;
+    position.x += v * dTime;
+
+    position.x = clamp(position.x, bounds.x, bounds.y);
+    velocity.x = v;
 }
 
 void computePendulum(float cartAcc) {
@@ -64,11 +75,13 @@ void computeTransform() {
     float s = sin(angle);
 
     model[flatIndex] = mat4(
-        c,   0,  -s,   0,   // column 0
-        0,   1,   0,   0,   // column 1
-        s,   0,   c,   0,   // column 2
-        x,   0,   0,   1    // column 3 (translation)
+        c,   0,  -s,   0,
+        0,   1,   0,   0,
+        s,   0,   c,   0,
+        x,   float(flatIndex+1)/float(instanceCount),   0,   1
     );
+    
+    //model[flatIndex] = mat4(1);
 }
 
 void main() {
