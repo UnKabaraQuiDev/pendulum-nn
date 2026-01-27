@@ -37,6 +37,10 @@ public class NNStructure {
 		return total;
 	}
 
+	public int computeNeuronCount() {
+		return inputCount + outputCount + Arrays.stream(innerLayers).sum();
+	}
+
 	public int getInputCount() {
 		return inputCount;
 	}

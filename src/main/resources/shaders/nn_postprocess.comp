@@ -35,6 +35,7 @@ uniform vec2 bounds;
 uniform vec2 accBounds;
 uniform float friction;
 uniform float angularFriction;
+uniform float accFactor;
 
 uint flatIndex;
 vec4 position;
@@ -108,7 +109,7 @@ void main() {
 	position = states[flatIndex * 2 + 0];
 	velocity = states[flatIndex * 2 + 1];
 
-	float acc = clamp(nnOutput[flatIndex], accBounds.x, accBounds.y);
+	float acc = clamp(nnOutput[flatIndex] * accFactor, accBounds.x, accBounds.y);
 
 	computeCart(acc);
 	computePendulum(acc);

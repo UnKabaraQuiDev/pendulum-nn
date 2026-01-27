@@ -2,6 +2,7 @@ package lu.kbra.pendulum_nn;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -45,7 +46,7 @@ public class PALogic extends GameLogic {
 	public static final int MAX_ITERATIONS = 60 * 10;
 	public static final int TOP_AGENTS = 5;
 	public static final int AGENT_BATCHES = 1;
-	public static final int MAX_AGENTS = 10;
+	public static final int MAX_AGENTS = 1000;
 
 	private static final float MUTATE_STD_DEV = 0.1f;
 
@@ -165,7 +166,7 @@ public class PALogic extends GameLogic {
 				inst.getWeights()[j] = (float) (Math.random() * 2 - 1);
 			}
 			for (int j = 0; j < inst.getBiases().length; j++) {
-				inst.getBiases()[j] = 0f; // (float) (Math.random() * 2 - 1);
+				inst.getBiases()[j] = (float) (Math.random() * 2 - 1) * MUTATE_STD_DEV;
 			}
 			instances.add(nInst);
 		}
@@ -212,6 +213,9 @@ public class PALogic extends GameLogic {
 	}
 
 	private void upload(List<NNInstance> instances) {
+		assert struct.computeNeuronCount() < NNComputeComputeShader.MAX_NEURONS;
+		assert struct.getInnerLayers().length < NNComputeComputeShader.MAX_LAYERS;
+		
 		final float[] weights = PCUtils.pack(instances.parallelStream().map(NNInstance::getWeights).toArray(float[][]::new));
 		assert weights.length == struct.computeWeightCount() * instanceCount : weights.length + " for " + instanceCount + " & "
 				+ instances.size() + " = " + (struct.computeWeightCount() * instanceCount);
@@ -248,8 +252,23 @@ public class PALogic extends GameLogic {
 		done.setValue(true);
 		RENDER_DISPATCHER.clear();
 
+		{
+			final float[] outs = outputNeuronsValueArray.read(0, outputNeuronsValueArray.getLength());
+			System.err.println("Outputs: " + Arrays.toString(outs));
+			final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(outs))
+					.mapToDouble(c -> (double) (Float) (Object) c)
+					.summaryStatistics();
+			System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+					+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
+		}
+
 		final float[] arr = gradeNeuronsValueArray.read(0, gradeNeuronsValueArray.getLength());
 		System.err.println("Grades: " + Arrays.toString(arr));
+		final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(arr))
+				.mapToDouble(c -> (double) (Float) (Object) c)
+				.summaryStatistics();
+		System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+				+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(arr));
 
 		final int[] topIndices = PCUtils.getMaxIndices(arr, TOP_AGENTS);
 		System.err.println("Keeping agents: " + Arrays.toString(topIndices));
@@ -337,7 +356,8 @@ public class PALogic extends GameLogic {
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.BOUNDS, new Vector2f(-1, 1));
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.FRICTION, 0.3f);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ANGULAR_FRICTION, 0.2f);
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_BOUNDS, new Vector2f(-0.1f, 0.1f));
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_BOUNDS, new Vector2f(-1, 1));
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_FACTOR, 1f);
 
 		final Vector3ic neededGlobalGroups = clearVec4fComputeShader.getGlobalGroup(instanceCount);
 //		GlobalLogger.info("Computed: " + neededGlobalGroups + " for: " + instanceCount);

@@ -36,7 +36,7 @@ float activation(float x) {
 		case %SIGMOID%:
 			return 1.0 / (1.0 + exp(-x));
 		case %TANH%:
-			return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
+			return tanh(x); // (exp(x) - exp(-x)) / (exp(x) + exp(-x));
 	}
 }
 
