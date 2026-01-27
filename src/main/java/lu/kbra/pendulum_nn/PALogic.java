@@ -1,6 +1,8 @@
 package lu.kbra.pendulum_nn;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -9,9 +11,6 @@ import org.joml.Vector3ic;
 import org.joml.Vector4f;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import lu.pcy113.pclib.PCUtils;
-import lu.pcy113.pclib.logger.GlobalLogger;
 
 import lu.kbra.standalone.gameengine.GameEngine;
 import lu.kbra.standalone.gameengine.generated.gl_wrapper.GL_W;
@@ -24,6 +23,10 @@ import lu.kbra.standalone.gameengine.scene.Scene3D;
 import lu.kbra.standalone.gameengine.scene.camera.Camera;
 import lu.kbra.standalone.gameengine.utils.GameEngineUtils;
 import lu.kbra.standalone.gameengine.utils.gl.consts.BufferType;
+import lu.pcy113.pclib.PCUtils;
+import lu.pcy113.pclib.logger.GlobalLogger;
+import lu.pcy113.pclib.pointer.prim.BooleanPointer;
+import lu.pcy113.pclib.pointer.prim.IntPointer;
 
 public class PALogic extends GameLogic {
 
@@ -35,6 +38,11 @@ public class PALogic extends GameLogic {
 	public static final int WEIGHTS_IDX = 3;
 	public static final int BIASES_IDX = 4;
 	public static final int TRANSFORMS_IDX = InstanceEmitter.TRANSFORM_BUFFER_INDEX;
+	public static final int GRADE_IDX = InstanceEmitter.FIRST_BUFFER_INDEX;
+
+	public static final float FIXED_D_TIME = 1f / 12;
+
+	public static final int MAX_ITERATIONS = 10_000;
 
 	protected ClearFloatComputeShader clearFloatComputeShader;
 	protected ClearVec4fComputeShader clearVec4fComputeShader;
@@ -55,8 +63,9 @@ public class PALogic extends GameLogic {
 	protected SyntheticFloatAttribArray outputNeuronsValueArray;
 	protected SyntheticVec4fAttribArray physicsVec4sValueArray;
 	protected SyntheticMat4fAttribArray transformsValueArray;
+	protected SyntheticFloatAttribArray gradeNeuronsValueArray;
 
-	protected final NNStructure struct = new NNStructure(5, new int[] { 5, 4, 3, 2 }, 1);
+	protected final NNStructure struct = new NNStructure(5, new int[] { 5, 4, 3, 2 }, 1, ActivationFunction.TANH);
 	protected final int instanceCount = 10;
 
 	@Override
@@ -77,8 +86,9 @@ public class PALogic extends GameLogic {
 		physicsVec4sValueArray = new SyntheticVec4fAttribArray("physics", PHYSICS_IDX, physicsVec4sTotal, BufferType.SHADER_STORAGE, false,
 				1);
 
-		final int transformsTotal = instanceCount;
-		transformsValueArray = new SyntheticMat4fAttribArray("transforms", TRANSFORMS_IDX, transformsTotal, BufferType.ARRAY, false);
+		transformsValueArray = new SyntheticMat4fAttribArray("transforms", TRANSFORMS_IDX, instanceCount, BufferType.ARRAY, false);
+
+		gradeNeuronsValueArray = new SyntheticFloatAttribArray("grade", GRADE_IDX, instanceCount, BufferType.SHADER_STORAGE, false);
 
 		weightsValueArray.gen();
 		weightsValueArray.init();
@@ -95,6 +105,9 @@ public class PALogic extends GameLogic {
 		transformsValueArray.gen();
 		transformsValueArray.init();
 
+		gradeNeuronsValueArray.gen();
+		gradeNeuronsValueArray.init();
+
 		GlobalLogger.info("Created all buffers");
 
 		clearFloatComputeShader = new ClearFloatComputeShader();
@@ -107,6 +120,7 @@ public class PALogic extends GameLogic {
 		clear(outputNeuronsValueArray);
 		clear(physicsVec4sValueArray);
 		clear(transformsValueArray);
+		clear(gradeNeuronsValueArray);
 
 		GlobalLogger.info("Cleared all buffers");
 
@@ -116,16 +130,26 @@ public class PALogic extends GameLogic {
 		GlobalLogger.info("Compute local size: " + NNComputeComputeShader.LOCAL_SIZE);
 		nnComputeComputeShader = new NNComputeComputeShader();
 		nnComputeComputeShader.bind();
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 0, inputNeuronsValueArray.getGlId());
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 1, weightsValueArray.getGlId());
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 2, biasValueArray.getGlId());
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 3, outputNeuronsValueArray.getGlId());
+
+		final NNInstance inst = new NNInstance(struct, new float[struct.computeWeightCount()], new float[struct.computeBiasCount()]);
+		for (int i = 0; i < inst.getWeights().length; i++) {
+			inst.getWeights()[i] = (float) (Math.random() * 2 - 1);
+		}
+		for (int i = 0; i < inst.getBiases().length; i++) {
+			inst.getBiases()[i] = (float) (Math.random() * 2 - 1);
+		}
+		final List<NNInstance> instances = new ArrayList<>();
 
 		final float[] weights = new float[struct.computeWeightCount() * instanceCount];
-		Arrays.fill(weights, 0, struct.computeWeightCount(), 1);
+		for (int i = 0; i < weights.length; i++) {
+			weights[i] = (float) (Math.random() * 2 - 1);
+		}
+//		System.arraycopy(inst.getWeights(), 0, weights, 0, inst.getWeights().length);
 		weightsValueArray.update(weights);
 		final float[] biases = new float[struct.computeBiasCount() * instanceCount];
-		Arrays.fill(biases, 0, struct.computeWeightCount(), 0);
+		for (int i = 0; i < biases.length; i++) {
+			biases[i] = (float) (Math.random() * 2 - 1);
+		}
 		biasValueArray.update(biases);
 
 		final float[] inputs = new float[struct.getInputCount() * instanceCount];
@@ -137,27 +161,11 @@ public class PALogic extends GameLogic {
 		state = GameEngineUtils.vec4Repeating(state, instanceCount);
 		physicsVec4sValueArray.update(state);
 
-		compute();
-
-//		final float[] arr = new float[outputNeuronsValueArray.getLength()];
-//		assert GL_W.glGetBufferParameteri(outputNeuronsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr.length
-//				* Float.BYTES;
-//		outputNeuronsValueArray.bind();
-//		GL_W.glGetBufferSubData(outputNeuronsValueArray.getBufferType().getGlId(), 0, arr);
-//		GL_W.glFinish();
-//		System.err.println(Arrays.toString(arr));
-
 		// post process
 		NNPostprocessComputeShader.LOCAL_SIZE = NNComputeComputeShader.LOCAL_SIZE;
 		GlobalLogger.info("Compute local size: " + NNPostprocessComputeShader.LOCAL_SIZE);
 		nnPostprocessComputeShader = new NNPostprocessComputeShader();
-		nnPostprocessComputeShader.bind();
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 0, outputNeuronsValueArray.getGlId());
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 1, physicsVec4sValueArray.getGlId());
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 2, transformsValueArray.getGlId());
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 3, inputNeuronsValueArray.getGlId());
-
-		postProcess(0.1f);
+		postProcess(FIXED_D_TIME);
 
 		// draw
 		directShader = new DirectShader();
@@ -172,10 +180,48 @@ public class PALogic extends GameLogic {
 		scene.getCamera().setPosition(new Vector3f(0, 10, 0));
 		scene.getCamera().lookAt(scene.getCamera().getPosition(), GameEngine.ZERO, GameEngine.Z_POS);
 		scene.getCamera().updateMatrix();
+
+		for (int i = 0; i < 4; i++) {
+			dispatchSelfRecurringTask();
+		}
+	}
+
+	private void dispatchSelfRecurringTask() {
+		RENDER_DISPATCHER.post(() -> {
+			compute();
+			postProcess(FIXED_D_TIME);
+			if (iterationCount.increment() < MAX_ITERATIONS) {
+				dispatchSelfRecurringTask();
+			} else {
+				readBack();
+			}
+		});
+	}
+
+	protected BooleanPointer done = new BooleanPointer(false);
+
+	private void readBack() {
+		if (done.getValue()) {
+			return;
+		}
+		done.setValue(true);
+
+		final float[] arr = new float[gradeNeuronsValueArray.getLength()];
+		gradeNeuronsValueArray.bind();
+		assert GL_W.glGetBufferParameteri(gradeNeuronsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr.length * Float.BYTES
+				: arr.length + " & " + (arr.length * Float.BYTES) + " & "
+						+ GL_W.glGetBufferParameteri(gradeNeuronsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE);
+		GL_W.glGetBufferSubData(gradeNeuronsValueArray.getBufferType().getGlId(), 0, arr);
+		GL_W.glFinish();
+		System.err.println("Grades: " + Arrays.toString(arr));
 	}
 
 	private void compute() {
 		nnComputeComputeShader.bind();
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 0, inputNeuronsValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 1, weightsValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 2, biasValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 3, outputNeuronsValueArray.getGlId());
 
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.INPUT_SIZE, struct.getInputCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.LAYER_COUNT, struct.getInnerLayers().length + 1);
@@ -185,27 +231,34 @@ public class PALogic extends GameLogic {
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.WEIGHT_OFFSET_PER_INSTANCE, struct.computeWeightCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.BIAS_OFFSET_PER_INSTANCE, struct.computeBiasCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.INSTANCE_COUNT, instanceCount);
+		nnComputeComputeShader.setUniform(NNComputeComputeShader.ACTIVATION_FUNCTION, struct.getActivationFunction().ordinal());
 
 		final Vector3ic neededGlobalGroups = clearVec4fComputeShader.getGlobalGroup(instanceCount);
-		GlobalLogger.info("Computed: " + neededGlobalGroups + " for: " + instanceCount);
+//		GlobalLogger.info("Computed: " + neededGlobalGroups + " for: " + instanceCount);
 		GL_W.glDispatchCompute(neededGlobalGroups.x(), neededGlobalGroups.y(), neededGlobalGroups.z());
 		GL_W.glMemoryBarrier(GL_W.GL_SHADER_STORAGE_BARRIER_BIT | GL_W.GL_BUFFER_UPDATE_BARRIER_BIT);
-		GlobalLogger.info("Computed: " + instanceCount);
+//		GlobalLogger.info("Computed: " + instanceCount);
 
-		final float[] arr = new float[outputNeuronsValueArray.getLength()];
-		outputNeuronsValueArray.bind();
-		assert GL_W.glGetBufferParameteri(outputNeuronsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr.length
-				* Float.BYTES
-				: arr.length + " & " + (arr.length * Float.BYTES) + " & "
-						+ GL_W.glGetBufferParameteri(outputNeuronsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE);
-		GL_W.glGetBufferSubData(outputNeuronsValueArray.getBufferType().getGlId(), 0, arr);
-		GL_W.glFinish();
-		System.err.println("Output neurons: " + Arrays.toString(arr));
+//		final float[] arr = new float[outputNeuronsValueArray.getLength()];
+//		outputNeuronsValueArray.bind();
+//		assert GL_W.glGetBufferParameteri(outputNeuronsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr.length
+//				* Float.BYTES
+//				: arr.length + " & " + (arr.length * Float.BYTES) + " & "
+//						+ GL_W.glGetBufferParameteri(outputNeuronsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE);
+//		GL_W.glGetBufferSubData(outputNeuronsValueArray.getBufferType().getGlId(), 0, arr);
+//		GL_W.glFinish();
+//		System.err.println("Output neurons: " + Arrays.toString(arr));
 	}
+
+	protected IntPointer iterationCount = new IntPointer(0);
 
 	private void postProcess(float dTime) {
 		nnPostprocessComputeShader.bind();
-		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 2, transformsValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 3, outputNeuronsValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 4, physicsVec4sValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 5, transformsValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 0, inputNeuronsValueArray.getGlId());
+		GL_W.glBindBufferBase(BufferType.SHADER_STORAGE.getGlId(), 9, gradeNeuronsValueArray.getGlId());
 
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.D_TIME, dTime);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.INPUT_SIZE, struct.getInputCount());
@@ -215,30 +268,31 @@ public class PALogic extends GameLogic {
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.BOUNDS, new Vector2f(-1, 1));
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.FRICTION, 0.98f);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ANGULAR_FRICTION, 0.98f);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_BOUNDS, new Vector2f(-1, 1));
 
 		final Vector3ic neededGlobalGroups = clearVec4fComputeShader.getGlobalGroup(instanceCount);
-		GlobalLogger.info("Computed: " + neededGlobalGroups + " for: " + instanceCount);
+//		GlobalLogger.info("Computed: " + neededGlobalGroups + " for: " + instanceCount);
 		GL_W.glDispatchCompute(neededGlobalGroups.x(), neededGlobalGroups.y(), neededGlobalGroups.z());
 		GL_W
 				.glMemoryBarrier(
 						GL_W.GL_SHADER_STORAGE_BARRIER_BIT | GL_W.GL_BUFFER_UPDATE_BARRIER_BIT | GL_W.GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-		GlobalLogger.info("Post-processed: " + instanceCount);
+//		GlobalLogger.info("Post-processed: " + instanceCount);
 
-		final float[] arr = new float[physicsVec4sValueArray.getLength() * physicsVec4sValueArray.getElementComponentCount()];
-		physicsVec4sValueArray.bind();
-		assert GL_W.glGetBufferParameteri(physicsVec4sValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr.length
-				* Float.BYTES;
-		GL_W.glGetBufferSubData(physicsVec4sValueArray.getBufferType().getGlId(), 0, arr);
-		GL_W.glFinish();
-		System.err.println("Physics: " + Arrays.toString(arr));
-
-		final float[] arr2 = new float[transformsValueArray.getLength() * transformsValueArray.getElementComponentCount()];
-		transformsValueArray.bind();
-		assert GL_W.glGetBufferParameteri(transformsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr2.length * Float.BYTES;
-//		GL_W.glBindBuffer(GL_W.GL_SHADER_STORAGE_BUFFER, transformsValueArray.getGlId());
-		GL_W.glGetBufferSubData(transformsValueArray.getBufferType().getGlId(), 0, arr2);
-		GL_W.glFinish();
-		System.err.println("Transforms: " + Arrays.toString(arr2));
+//		final float[] arr = new float[physicsVec4sValueArray.getLength() * physicsVec4sValueArray.getElementComponentCount()];
+//		physicsVec4sValueArray.bind();
+//		assert GL_W.glGetBufferParameteri(physicsVec4sValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr.length
+//				* Float.BYTES;
+//		GL_W.glGetBufferSubData(physicsVec4sValueArray.getBufferType().getGlId(), 0, arr);
+//		GL_W.glFinish();
+//		System.err.println("Physics: " + Arrays.toString(arr));
+//
+//		final float[] arr2 = new float[transformsValueArray.getLength() * transformsValueArray.getElementComponentCount()];
+//		transformsValueArray.bind();
+//		assert GL_W.glGetBufferParameteri(transformsValueArray.getBufferType().getGlId(), GL_W.GL_BUFFER_SIZE) == arr2.length * Float.BYTES;
+////		GL_W.glBindBuffer(GL_W.GL_SHADER_STORAGE_BUFFER, transformsValueArray.getGlId());
+//		GL_W.glGetBufferSubData(transformsValueArray.getBufferType().getGlId(), 0, arr2);
+//		GL_W.glFinish();
+//		System.err.println("Transforms: " + Arrays.toString(arr2));
 	}
 
 	@Override
@@ -253,7 +307,7 @@ public class PALogic extends GameLogic {
 
 	@Override
 	public void render(float dTime) {
-		postProcess(dTime);
+//		System.err.println(iterationCount.getValue());
 
 		GL_W.glViewport(0, 0, window.getWidth(), window.getHeight());
 		GL_W.glClearColor(0.1f, 0.2f, 0.3f, 1f);
@@ -272,15 +326,11 @@ public class PALogic extends GameLogic {
 		}
 
 		instanceDirectShader.setUniform(DirectShader.HAS_TEXTURE, false);
-//		instanceDirectShader.setUniform("tint", new Vector4f(1, 0.2f, 0.1f, 1));
 		instanceDirectShader.setUniformUnsigned(DirectShader.INSTANCE_COUNT, instanceEmitter.getParticleCount());
 		instanceDirectShader.setUniform(RenderShader.TRANSFORMATION_MATRIX, GameEngine.IDENTITY_MATRIX4F);
 		instanceDirectShader.setUniform(RenderShader.VIEW_MATRIX, scene.getCamera().getViewMatrix());
 		instanceDirectShader.setUniform(RenderShader.PROJECTION_MATRIX, scene.getCamera().getProjection().getProjectionMatrix());
 
-//		GL_W.glDrawElements(GL_W.GL_TRIANGLES, mesh.getIndicesCount(), GL_W.GL_UNSIGNED_INT, 0);
-
-		System.err.println(instanceEmitter.getParticleCount());
 		GL_W
 				.glDrawElementsInstanced(instanceDirectShader.getBeginMode().getGlId(),
 						mesh.getIndicesCount(),

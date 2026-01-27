@@ -27,9 +27,17 @@ uniform int layerSize[MAX_LAYERS];		// neurons per layer
 uniform int weightOffsetPerInstance;	// total weights per instance
 uniform int biasOffsetPerInstance;		// total biases per instance
 uniform int instanceCount;
+uniform int activationFunction;
 
-float activation(float a) {
-	return max(a, 0.0);
+float activation(float x) {
+	switch(activationFunction) {
+		case %RELU%:
+			return max(x, 0.0);
+		case %SIGMOID%:
+			return 1.0 / (1.0 + exp(-x));
+		case %TANH%:
+			return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
+	}
 }
 
 void main() {

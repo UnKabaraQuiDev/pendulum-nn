@@ -7,11 +7,13 @@ public class NNStructure {
 	protected int inputCount;
 	protected int[] innerLayers;
 	protected int outputCount;
+	protected ActivationFunction activationFunction;
 
-	public NNStructure(int inputCount, int[] innerLayers, int outputCount) {
+	public NNStructure(int inputCount, int[] innerLayers, int outputCount, ActivationFunction activationFunction) {
 		this.inputCount = inputCount;
 		this.innerLayers = innerLayers;
 		this.outputCount = outputCount;
+		this.activationFunction = activationFunction;
 	}
 
 	public int computeWeightCount() {
@@ -47,10 +49,14 @@ public class NNStructure {
 		return outputCount;
 	}
 
+	public ActivationFunction getActivationFunction() {
+		return activationFunction;
+	}
+
 	@Override
 	public String toString() {
-		return "NNStructure@" + System.identityHashCode(this) + " [inputCount=" + inputCount + ", innerLayers="
-				+ Arrays.toString(innerLayers) + ", outputCount=" + outputCount + "]";
+		return "NNStructure [inputCount=" + inputCount + ", innerLayers=" + Arrays.toString(innerLayers) + ", outputCount=" + outputCount
+				+ ", activationFunction=" + activationFunction + "]";
 	}
 
 }

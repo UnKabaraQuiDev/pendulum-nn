@@ -20,6 +20,7 @@ public class NNComputeComputeShader extends ComputeShader {
 	public static final String WEIGHT_OFFSET_PER_INSTANCE = "weightOffsetPerInstance";
 	public static final String BIAS_OFFSET_PER_INSTANCE = "biasOffsetPerInstance";
 	public static final String INSTANCE_COUNT = "instanceCount";
+	public static final String ACTIVATION_FUNCTION = "activationFunction";
 
 	public NNComputeComputeShader() {
 		super(new ComputeShaderPart("classpath:/shaders/nn_compute.comp", getBuildingDeps()), LOCAL_SIZE);
@@ -29,6 +30,11 @@ public class NNComputeComputeShader extends ComputeShader {
 		final Map<String, Object> buildingDeps = getBaseBuildingDeps(LOCAL_SIZE);
 		buildingDeps.put("%MAX_LAYERS%", MAX_LAYERS);
 		buildingDeps.put("%MAX_NEURONS%", MAX_NEURONS);
+
+		for (ActivationFunction af : ActivationFunction.values()) {
+			buildingDeps.put("%" + af.name() + "%", af.ordinal());
+		}
+
 		return buildingDeps;
 	}
 
@@ -40,6 +46,7 @@ public class NNComputeComputeShader extends ComputeShader {
 		createUniform(WEIGHT_OFFSET_PER_INSTANCE);
 		createUniform(BIAS_OFFSET_PER_INSTANCE);
 		createUniform(INSTANCE_COUNT);
+		createUniform(ACTIVATION_FUNCTION);
 	}
 
 }

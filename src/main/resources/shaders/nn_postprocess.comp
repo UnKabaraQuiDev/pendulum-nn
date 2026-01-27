@@ -4,22 +4,26 @@
 
 layout(local_size_x = %LOCAL_SIZE_X%, local_size_y = %LOCAL_SIZE_Y%, local_size_z = %LOCAL_SIZE_Z%) in;
 
-layout(std430, binding = 0) readonly buffer NNOutput {
+layout(std430, binding = 3) readonly buffer NNOutput {
 	float nnOutput[];
 };
 
-layout(std430, binding = 1) buffer PhysicsState {
+layout(std430, binding = 4) buffer PhysicsState {
 	vec4 states[];
 // x, angle, 0, 0
 // vx, angleVel, 0, 0
 };
 
-layout(std430, binding = 2) writeonly buffer Transforms {
+layout(std430, binding = 5) writeonly buffer Transforms {
 	mat4 model[];
 };
 
-layout(std430, binding = 3) buffer NNInput {
+layout(std430, binding = 0) buffer NNInput {
 	float nnInput[];
+};
+
+layout(std430, binding = 9) buffer NNGrade {
+	float nnGrade[];
 };
 
 uniform float dTime;
@@ -28,6 +32,7 @@ uniform int instanceCount;
 uniform float gravity;
 uniform float pendulumLength;
 uniform vec2 bounds;
+uniform vec2 accBounds;
 uniform float friction;
 uniform float angularFriction;
 
@@ -80,8 +85,16 @@ void computeTransform() {
         s,   0,   c,   0,
         x,   float(flatIndex+1)/float(instanceCount),   0,   1
     );
-    
-    //model[flatIndex] = mat4(1);
+}
+
+float bell(float x, vec2 size) {
+	float L = max(abs(size.x), abs(size.y));
+	float sigma = L / 3.0;
+	return exp(- (x * x) / (2.0 * sigma * sigma));
+}
+
+float grade() {
+	return bell(position.x, bounds) * bell(position.y, vec2(-PI, PI));
 }
 
 void main() {
@@ -95,7 +108,7 @@ void main() {
 	position = states[flatIndex * 2 + 0];
 	velocity = states[flatIndex * 2 + 1];
 
-	float acc = nnOutput[flatIndex];
+	float acc = clamp(nnOutput[flatIndex], accBounds.x, accBounds.y);
 
 	computeCart(acc);
 	computePendulum(acc);
@@ -104,6 +117,8 @@ void main() {
 
 	states[flatIndex * 2 + 0] = position;
 	states[flatIndex * 2 + 1] = velocity;
+	
+	nnGrade[flatIndex] += grade() * dTime;
 
 	/*
 		INPUT LAYOUT:
