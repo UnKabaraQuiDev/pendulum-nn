@@ -233,7 +233,8 @@ public class PALogic extends GameLogic {
 	}
 
 	private void resetNNs() {
-		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(0, (float) Math.PI / 2, 0, 0), new Vector4f(0, 0, 0, 0) });
+		fill(physicsVec4sValueArray,
+				new Vector4f[] { new Vector4f(0, (float) Math.PI * PCUtils.randomFloatRange(0.8f, 1f), 0, 0), new Vector4f(0, 0, 0, 0) });
 		clear(transformsValueArray);
 		clear(gradeNeuronsValueArray);
 		clear(inputNeuronsValueArray);
