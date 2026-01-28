@@ -15,11 +15,17 @@ import org.joml.Vector4f;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import lu.pcy113.pclib.PCUtils;
-import lu.pcy113.pclib.logger.GlobalLogger;
-import lu.pcy113.pclib.pointer.prim.BooleanPointer;
-import lu.pcy113.pclib.pointer.prim.IntPointer;
-
+import lu.kbra.pendulum_nn.attrib_arrays.SyntheticFloatAttribArray;
+import lu.kbra.pendulum_nn.attrib_arrays.SyntheticMat4fAttribArray;
+import lu.kbra.pendulum_nn.attrib_arrays.SyntheticVec4fAttribArray;
+import lu.kbra.pendulum_nn.shaders.compute.NNComputeComputeShader;
+import lu.kbra.pendulum_nn.shaders.compute.NNPostprocessComputeShader;
+import lu.kbra.pendulum_nn.shaders.compute.clear.ClearFloatComputeShader;
+import lu.kbra.pendulum_nn.shaders.compute.clear.ClearMat4fComputeShader;
+import lu.kbra.pendulum_nn.shaders.compute.clear.ClearVec4fComputeShader;
+import lu.kbra.pendulum_nn.shaders.compute.fill.FillVec4fComputeShader;
+import lu.kbra.pendulum_nn.shaders.draw.DirectShader;
+import lu.kbra.pendulum_nn.shaders.draw.InstanceDirectShader;
 import lu.kbra.standalone.gameengine.GameEngine;
 import lu.kbra.standalone.gameengine.generated.gl_wrapper.GL_W;
 import lu.kbra.standalone.gameengine.geom.Mesh;
@@ -30,6 +36,10 @@ import lu.kbra.standalone.gameengine.impl.GameLogic;
 import lu.kbra.standalone.gameengine.scene.Scene3D;
 import lu.kbra.standalone.gameengine.scene.camera.Camera;
 import lu.kbra.standalone.gameengine.utils.gl.consts.BufferType;
+import lu.pcy113.pclib.PCUtils;
+import lu.pcy113.pclib.logger.GlobalLogger;
+import lu.pcy113.pclib.pointer.prim.BooleanPointer;
+import lu.pcy113.pclib.pointer.prim.IntPointer;
 
 public class PALogic extends GameLogic {
 
@@ -43,6 +53,8 @@ public class PALogic extends GameLogic {
 	public static final int TRANSFORMS_IDX = InstanceEmitter.TRANSFORM_BUFFER_INDEX;
 	public static final int GRADE_IDX = InstanceEmitter.FIRST_BUFFER_INDEX;
 
+	public static final boolean REAL_TIME = true;
+
 	public static final float FIXED_D_TIME = 1f / 60;
 	public static final int MAX_ITERATIONS = 60 * 60;
 	public static final int TOP_AGENTS = 5;
@@ -52,8 +64,13 @@ public class PALogic extends GameLogic {
 	public static final float MUTATE_RATE = 0.1f;
 	public static final float MUTATE_STRENGTH = 0.1f;
 
-	public static final float GRAVITY = 1f;
+	public static final float GRAVITY = 5f;
+	public static final float MASS = 1f;
+	public static final float HEAD_RADIUS = 0.14f;
 	public static final float STARTING_ANGLE = (float) Math.PI / 1000 * 999;
+	public static final float ACCELERATION_FACTOR = 2f;
+	public static final float WIDTH = 3f;
+	public static final boolean DEBUG_PERFECT_SCORE = false;
 
 	public static int AGENT_PER_BATCHES;
 
@@ -105,8 +122,9 @@ public class PALogic extends GameLogic {
 		nnPostprocessComputeShader = new NNPostprocessComputeShader();
 
 		instanceCount = Math.min(MAX_AGENTS, AGENT_BATCHES * AGENT_PER_BATCHES);
-		GlobalLogger.info("Instancing: " + instanceCount + " instances on: " + AGENT_BATCHES + " * " + AGENT_PER_BATCHES + " for "
-				+ NNComputeComputeShader.LOCAL_SIZE + " = " + nnComputeComputeShader.getGlobalGroup(instanceCount));
+		GlobalLogger
+				.info("Instancing: " + instanceCount + " instances on: " + AGENT_BATCHES + " * " + AGENT_PER_BATCHES + " for "
+						+ NNComputeComputeShader.LOCAL_SIZE + " = " + nnComputeComputeShader.getGlobalGroup(instanceCount));
 
 		final int weightCountTotal = struct.computeWeightCount() * instanceCount;
 		weightsValueArray = new SyntheticFloatAttribArray("weights", WEIGHTS_IDX, weightCountTotal, BufferType.SHADER_STORAGE, false);
@@ -121,11 +139,7 @@ public class PALogic extends GameLogic {
 		outputNeuronsValueArray = new SyntheticFloatAttribArray("output", OUTPUT_IDX, outputCountTotal, BufferType.SHADER_STORAGE, false);
 
 		final int physicsVec4sTotal = 2 * instanceCount;
-		physicsVec4sValueArray = new SyntheticVec4fAttribArray("physics",
-				PHYSICS_IDX,
-				physicsVec4sTotal,
-				BufferType.SHADER_STORAGE,
-				false,
+		physicsVec4sValueArray = new SyntheticVec4fAttribArray("physics", PHYSICS_IDX, physicsVec4sTotal, BufferType.SHADER_STORAGE, false,
 				1);
 
 		transformsValueArray = new SyntheticMat4fAttribArray("transforms", TRANSFORMS_IDX, instanceCount, BufferType.ARRAY, false);
@@ -197,7 +211,8 @@ public class PALogic extends GameLogic {
 		scene.getCamera().lookAt(scene.getCamera().getPosition(), GameEngine.ZERO, GameEngine.Z_POS);
 		scene.getCamera().updateMatrix();
 
-		startSelfRecurringTasks();
+		if (!REAL_TIME)
+			startSelfRecurringTasks();
 	}
 
 	private void startSelfRecurringTasks() {
@@ -207,7 +222,7 @@ public class PALogic extends GameLogic {
 	}
 
 	private void resetNNs() {
-		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(0, STARTING_ANGLE, 0, 0), new Vector4f(0, 0, 0, 0) });
+		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(0, (float) Math.PI, 0, 0), new Vector4f(0, STARTING_ANGLE, 0, 0) });
 		clear(transformsValueArray);
 		clear(gradeNeuronsValueArray);
 		clear(inputNeuronsValueArray);
@@ -260,29 +275,35 @@ public class PALogic extends GameLogic {
 		{
 			final float[] outs = outputNeuronsValueArray.read(0, outputNeuronsValueArray.getLength());
 			System.err.println("Outputs: " + Arrays.toString(outs));
-			final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(outs))
+			final DoubleSummaryStatistics stats = Arrays
+					.stream(PCUtils.castObject(outs))
 					.mapToDouble(c -> (double) (Float) (Object) c)
 					.summaryStatistics();
-			System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
-					+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
+			System.err
+					.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+							+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
 		}
 		{
 			final float[] outs = physicsVec4sValueArray.read(0, physicsVec4sValueArray.getLength());
 			System.err.println("Physics: " + Arrays.toString(outs));
-			final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(outs))
+			final DoubleSummaryStatistics stats = Arrays
+					.stream(PCUtils.castObject(outs))
 					.mapToDouble(c -> (double) (Float) (Object) c)
 					.summaryStatistics();
-			System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
-					+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
+			System.err
+					.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+							+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
 		}
 
 		final float[] arr = gradeNeuronsValueArray.read(0, gradeNeuronsValueArray.getLength());
 		System.err.println("Grades: " + Arrays.toString(arr));
-		final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(arr))
+		final DoubleSummaryStatistics stats = Arrays
+				.stream(PCUtils.castObject(arr))
 				.mapToDouble(c -> (double) (Float) (Object) c)
 				.summaryStatistics();
-		System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
-				+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(arr));
+		System.err
+				.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+						+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(arr));
 
 		final int[] topIndices = PCUtils.getMaxIndices(arr, TOP_AGENTS);
 		System.err.println("Keeping agents: " + Arrays.toString(topIndices));
@@ -305,7 +326,8 @@ public class PALogic extends GameLogic {
 
 		done.setValue(false);
 		iterationCount.set(0);
-		startSelfRecurringTasks();
+		if (!REAL_TIME)
+			startSelfRecurringTasks();
 	}
 
 	Random rnd = new Random();
@@ -336,8 +358,9 @@ public class PALogic extends GameLogic {
 
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.INPUT_SIZE, struct.getInputCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.LAYER_COUNT, struct.getInnerLayers().length + 1);
-		nnComputeComputeShader.setUniform(NNComputeComputeShader.LAYER_SIZE,
-				PCUtils.combineArrays(struct.getInnerLayers(), new int[] { struct.getOutputCount() }));
+		nnComputeComputeShader
+				.setUniform(NNComputeComputeShader.LAYER_SIZE,
+						PCUtils.combineArrays(struct.getInnerLayers(), new int[] { struct.getOutputCount() }));
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.WEIGHT_OFFSET_PER_INSTANCE, struct.computeWeightCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.BIAS_OFFSET_PER_INSTANCE, struct.computeBiasCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.INSTANCE_COUNT, instanceCount);
@@ -376,17 +399,23 @@ public class PALogic extends GameLogic {
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.INSTANCE_COUNT, instanceCount);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.GRAVITY, GRAVITY);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.PENDULUM_LENGTH, 1f);
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.BOUNDS, new Vector2f(-1, 1));
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.BOUNDS, new Vector2f(-1, 1).mul(WIDTH / 2));
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.FRICTION, 0.3f);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ANGULAR_FRICTION, 0.2f);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_BOUNDS, new Vector2f(-1, 1));
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_FACTOR, 1f);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_FACTOR, ACCELERATION_FACTOR);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.USER_FORCE_DIR, new Vector2f());
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.USER_FORCE_SOURCE, new Vector2f());
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.HEAD_RADIUS, HEAD_RADIUS);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.MASS, MASS);
+		nnPostprocessComputeShader.setUniform("debugPerfectScore", DEBUG_PERFECT_SCORE);
 
 		final Vector3ic neededGlobalGroups = clearVec4fComputeShader.getGlobalGroup(instanceCount);
 //		GlobalLogger.info("Computed: " + neededGlobalGroups + " for: " + instanceCount);
 		GL_W.glDispatchCompute(neededGlobalGroups.x(), neededGlobalGroups.y(), neededGlobalGroups.z());
-		GL_W.glMemoryBarrier(
-				GL_W.GL_SHADER_STORAGE_BARRIER_BIT | GL_W.GL_BUFFER_UPDATE_BARRIER_BIT | GL_W.GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+		GL_W
+				.glMemoryBarrier(
+						GL_W.GL_SHADER_STORAGE_BARRIER_BIT | GL_W.GL_BUFFER_UPDATE_BARRIER_BIT | GL_W.GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 //		GlobalLogger.info("Post-processed: " + instanceCount);
 
 //		final float[] arr = new float[physicsVec4sValueArray.getLength() * physicsVec4sValueArray.getElementComponentCount()];
@@ -418,13 +447,19 @@ public class PALogic extends GameLogic {
 
 	@Override
 	public void render(float dTime) {
-//		compute();
-//		postProcess(dTime);
-//		if (iterationCount.increment() < MAX_ITERATIONS) {
-//			iterationFrame.increment();
-//		} else {
-//			readBack();
-//		}
+		if (REAL_TIME) {
+			compute();
+			postProcess(dTime);
+			final float[] output = outputNeuronsValueArray.read(0, outputNeuronsValueArray.getLength());
+			System.err.println(Arrays.toString(output));
+			final float[] grades = gradeNeuronsValueArray.read(0, gradeNeuronsValueArray.getLength());
+			System.err.println(Arrays.toString(grades));
+			if (iterationCount.increment() < MAX_ITERATIONS) {
+				iterationFrame.increment();
+			} else {
+				readBack();
+			}
+		}
 
 		System.err.println(iterationFrame.getValue() + " / " + iterationCount.getValue() + "/" + MAX_ITERATIONS);
 		iterationFrame.set(0);
@@ -451,8 +486,12 @@ public class PALogic extends GameLogic {
 		instanceDirectShader.setUniform(RenderShader.VIEW_MATRIX, scene.getCamera().getViewMatrix());
 		instanceDirectShader.setUniform(RenderShader.PROJECTION_MATRIX, scene.getCamera().getProjection().getProjectionMatrix());
 
-		GL_W.glDrawElementsInstanced(instanceDirectShader.getBeginMode()
-				.getGlId(), mesh.getIndicesCount(), GL_W.GL_UNSIGNED_INT, 0, instanceEmitter.getParticleCount());
+		GL_W
+				.glDrawElementsInstanced(instanceDirectShader.getBeginMode().getGlId(),
+						mesh.getIndicesCount(),
+						GL_W.GL_UNSIGNED_INT,
+						0,
+						instanceEmitter.getParticleCount());
 	}
 
 	@Override

@@ -1,10 +1,11 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.shaders.compute;
 
 import java.util.Map;
 
 import org.joml.Vector3i;
 import org.joml.Vector3ic;
 
+import lu.kbra.pendulum_nn.ActivationFunction;
 import lu.kbra.standalone.gameengine.graph.shader.ComputeShader;
 import lu.kbra.standalone.gameengine.graph.shader.part.ComputeShaderPart;
 

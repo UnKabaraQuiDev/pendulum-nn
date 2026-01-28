@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.shaders.draw;
 
 import org.joml.Vector4f;
 

@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.shaders.compute.clear;
 
 import org.joml.Vector3i;
 

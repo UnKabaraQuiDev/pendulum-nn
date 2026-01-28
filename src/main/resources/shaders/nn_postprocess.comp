@@ -27,15 +27,18 @@ layout(std430, binding = 9) buffer NNGrade {
 };
 
 uniform float dTime;
-// uniform int inputSize;
 uniform int instanceCount;
-uniform float gravity;
-uniform float pendulumLength;
-uniform vec2 bounds;
-uniform vec2 accBounds;
+
 uniform float friction;
 uniform float angularFriction;
 uniform float accFactor;
+uniform float gravity;
+uniform float pendulumLength;
+uniform float mass;
+uniform vec2 bounds;
+uniform vec2 accBounds;
+
+uniform bool debugPerfectScore;
 
 uint flatIndex;
 vec4 position;
@@ -75,8 +78,17 @@ void computePendulum(float cartAcc) {
 }
 
 void computeTransform() {
+	if(flatIndex == 0 && debugPerfectScore) {
+		position.y = PI;
+		position.x = 0;
+	}
+	if(flatIndex == 1 && debugPerfectScore) {
+		position.y = 0;
+		position.x = bounds.x;
+	}
+
     float angle = position.y;
-    float x = clamp(position.x, -1, 1);
+    float x = clamp(position.x, bounds.x, bounds.y);
     float c = cos(angle);
     float s = sin(angle);
 

@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.shaders.draw;
 
 import lu.kbra.standalone.gameengine.graph.shader.part.AbstractShaderPart;
 

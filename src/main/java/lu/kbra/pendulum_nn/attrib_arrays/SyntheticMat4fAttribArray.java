@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.attrib_arrays;
 
 import org.joml.Matrix4f;
 

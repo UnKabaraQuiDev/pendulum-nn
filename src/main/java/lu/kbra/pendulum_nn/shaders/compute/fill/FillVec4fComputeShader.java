@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.shaders.compute.fill;
 
 import java.util.HashMap;
 import java.util.Map;

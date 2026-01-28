@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.attrib_arrays;
 
 import lu.kbra.standalone.gameengine.cache.attrib.FloatAttribArray;
 import lu.kbra.standalone.gameengine.generated.gl_wrapper.GL_W;

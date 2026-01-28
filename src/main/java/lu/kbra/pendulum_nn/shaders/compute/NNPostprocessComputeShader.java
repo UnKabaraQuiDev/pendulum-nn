@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.shaders.compute;
 
 import java.util.Map;
 
@@ -22,6 +22,10 @@ public class NNPostprocessComputeShader extends ComputeShader {
 	public static final String ANGULAR_FRICTION = "angularFriction";
 	public static final String ACCELERATION_BOUNDS = "accBounds";
 	public static final String ACCELERATION_FACTOR = "accFactor";
+	public static final String USER_FORCE_DIR = "userForceDir";
+	public static final String USER_FORCE_SOURCE = "userForceSource";
+	public static final String HEAD_RADIUS = "headRadius"; // 0.14
+	public static final String MASS = "mass";
 
 	public NNPostprocessComputeShader() {
 		super(new ComputeShaderPart("classpath:/shaders/nn_postprocess.comp", getBuildingDeps()), LOCAL_SIZE);
@@ -45,6 +49,10 @@ public class NNPostprocessComputeShader extends ComputeShader {
 		createUniform(ANGULAR_FRICTION);
 		createUniform(ACCELERATION_BOUNDS);
 		createUniform(ACCELERATION_FACTOR);
+		createUniform(USER_FORCE_DIR);
+		createUniform(USER_FORCE_SOURCE);
+		createUniform(HEAD_RADIUS);
+		createUniform(MASS);
 	}
 
 }
