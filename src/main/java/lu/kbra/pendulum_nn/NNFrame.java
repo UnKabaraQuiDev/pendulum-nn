@@ -7,6 +7,8 @@ import java.util.List;
 
 import javax.swing.JFrame;
 
+import org.apache.commons.collections4.queue.CircularFifoQueue;
+
 import lu.pcy113.pclib.datastructure.pair.Pair;
 import lu.pcy113.pclib.swing.JLineGraph;
 import lu.pcy113.pclib.swing.JLineGraph.ChartData;
@@ -17,10 +19,10 @@ public class NNFrame extends JFrame {
 	private HistogramPanel histogramPanel;
 	private JLineGraph history;
 
-	private List<Double> avgHistory = new ArrayList<>();
-	private List<Double> maxHistory = new ArrayList<>();
-	private List<Double> minHistory = new ArrayList<>();
-	private List<Pair<Double, Double>> stdDevHistory = new ArrayList<>();
+	private CircularFifoQueue<Double> avgHistory = new CircularFifoQueue<>(500);
+	private CircularFifoQueue<Double> maxHistory = new CircularFifoQueue<>(500);
+	private CircularFifoQueue<Double> minHistory = new CircularFifoQueue<>(500);
+	private CircularFifoQueue<Pair<Double, Double>> stdDevHistory = new CircularFifoQueue<>(500);
 
 	public NNFrame() {
 		super("...");
@@ -41,16 +43,16 @@ public class NNFrame extends JFrame {
 		stdDevCd.setBorderColor(Color.YELLOW);
 		stdDevCd.setFillColor(new Color(Color.YELLOW.getRed(), Color.YELLOW.getGreen(), Color.YELLOW.getBlue(), 100));
 		stdDevCd.setFill(true);
-		stdDevCd.setValues(stdDevHistory);
+		stdDevCd.setValues(stdDevHistory, i -> stdDevHistory.get(i).getKey(), i -> stdDevHistory.get(i).getValue());
 		ChartData avgCd = history.createSeries("Average");
 		avgCd.setBorderColor(Color.RED);
-		avgCd.setValues(avgHistory);
+		avgCd.setValues(avgHistory, i -> avgHistory.get(i));
 		ChartData maxCd = history.createSeries("Max");
 		maxCd.setBorderColor(Color.BLUE);
-		maxCd.setValues(maxHistory);
+		maxCd.setValues(maxHistory, i -> maxHistory.get(i));
 		ChartData minCd = history.createSeries("Min");
 		minCd.setBorderColor(Color.GREEN);
-		minCd.setValues(minHistory);
+		minCd.setValues(minHistory, i -> minHistory.get(i));
 	}
 
 	public HistogramPanel getHistogramPanel() {
@@ -61,19 +63,19 @@ public class NNFrame extends JFrame {
 		return history;
 	}
 
-	public List<Double> getAvgHistory() {
+	public CircularFifoQueue<Double> getAvgHistory() {
 		return avgHistory;
 	}
 
-	public List<Double> getMinHistory() {
+	public CircularFifoQueue<Double> getMinHistory() {
 		return minHistory;
 	}
 
-	public List<Double> getMaxHistory() {
+	public CircularFifoQueue<Double> getMaxHistory() {
 		return maxHistory;
 	}
 
-	public List<Pair<Double, Double>> getStdDevHistory() {
+	public CircularFifoQueue<Pair<Double, Double>> getStdDevHistory() {
 		return stdDevHistory;
 	}
 }
