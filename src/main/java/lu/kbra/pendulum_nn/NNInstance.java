@@ -9,6 +9,9 @@ public class NNInstance {
 	protected float[] weights;
 	protected float[] biases;
 
+	public NNInstance() {
+	}
+
 	public NNInstance(NNStructure structure, float[] weights, float[] biases) {
 		this.structure = structure;
 		this.weights = weights;

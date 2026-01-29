@@ -10,6 +10,9 @@ public class NNStructure {
 	protected int outputCount;
 	protected ActivationFunction activationFunction;
 
+	public NNStructure() {
+	}
+
 	public NNStructure(int inputCount, int[] innerLayers, int outputCount, ActivationFunction activationFunction) {
 		this.inputCount = inputCount;
 		this.innerLayers = innerLayers;

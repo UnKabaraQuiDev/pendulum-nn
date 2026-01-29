@@ -1,10 +1,19 @@
 package lu.kbra.pendulum_nn;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.DoubleSummaryStatistics;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -16,9 +25,11 @@ import org.joml.Vector3i;
 import org.joml.Vector3ic;
 import org.joml.Vector4f;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lu.pcy113.pclib.PCUtils;
+import lu.pcy113.pclib.async.NextTask;
 import lu.pcy113.pclib.datastructure.pair.Pairs;
 import lu.pcy113.pclib.logger.GlobalLogger;
 import lu.pcy113.pclib.pointer.prim.BooleanPointer;
@@ -60,24 +71,34 @@ public class PALogic extends GameLogic {
 
 	public static final boolean REAL_TIME = false;
 
-	public static final int VIRTUAL_SECONDS = 120;
+	public static final int VIRTUAL_SECONDS = 300;
 	public static final int UPS = 60;
 	public static final float FIXED_D_TIME = 1f / UPS;
 	public static final int MAX_ITERATIONS = UPS * VIRTUAL_SECONDS;
 	public static final int TOP_AGENTS = 20;
-	public static final int AGENT_BATCHES = 1;
+	public static final int AGENT_BATCHES = 4;
 	public static final int MAX_AGENTS = 10_000;
 
 	public static final float MUTATE_RATE = 0.5f;
 	public static final float MUTATE_STRENGTH = 1f;
 
-	public static final float GRAVITY = 5f;
-	public static final float MASS = 1f;
+	public static final float GRAVITY = 9f;
+	public static final float MASS = 10f;
 	public static final float HEAD_RADIUS = 0.14f;
-	public static final float STARTING_ANGLE = (float) Math.PI;
-	public static final float ACCELERATION_FACTOR = 2f;
+	public static final float ACCELERATION_FACTOR = 10f;
+	public static final float ACCELERATION_MAX = 5;
 	public static final float WIDTH = 3f;
 	public static final boolean DEBUG_PERFECT_SCORE = false;
+	public static final float ANGULAR_FRICTION = 0.4f;
+	public static final float FRICTION = 0.25f;
+	public static final float PENDULUM_LENGTH = 1f;
+
+	public static final boolean RELOAD_LATEST = true;
+
+	public static float STARTING_ANGLE = (float) Math.PI / 100 * 20;
+	public static float STARTING_POS = 1;
+	public static float STARTING_ANGLE_VEL = -1f;
+	public static float STARTING_VEL = 0f;
 
 	public static int AGENT_PER_BATCHES;
 
@@ -94,6 +115,8 @@ public class PALogic extends GameLogic {
 	protected InstanceDirectShader instanceDirectShader;
 	protected Mesh mesh;
 	protected LimitedInstanceEmitter instanceEmitter;
+	protected Mesh triangleMesh;
+	protected LimitedInstanceEmitter triangleEmitter;
 	protected Scene3D scene;
 
 	protected SyntheticFloatAttribArray weightsValueArray;
@@ -108,6 +131,44 @@ public class PALogic extends GameLogic {
 	protected int instanceCount = 10;
 
 	protected NNFrame frame = new NNFrame();
+
+	public static List<NNInstance> loadLatestOutput() throws IOException {
+		final File baseDir = new File("./output");
+		if (!baseDir.isDirectory()) {
+			throw new IllegalStateException("output directory not found");
+		}
+
+		final Optional<File> largestDir = Files.list(baseDir.toPath())
+				.map(java.nio.file.Path::toFile)
+				.filter(File::isDirectory)
+				.filter(f -> f.getName().matches("\\d+"))
+				.max(Comparator.comparingLong(f -> Long.parseLong(f.getName())));
+
+		if (largestDir.isEmpty()) {
+			throw new IllegalStateException("no numeric directories found");
+		}
+
+		final Pattern pattern = Pattern.compile("top\\.(\\d+)\\.json");
+
+		final Optional<File> largestFile = Files.list(largestDir.get().toPath())
+				.map(java.nio.file.Path::toFile)
+				.filter(File::isFile)
+				.filter(f -> pattern.matcher(f.getName()).matches())
+				.max(Comparator.comparingLong(f -> {
+					Matcher m = pattern.matcher(f.getName());
+					m.find();
+					return Long.parseLong(m.group(1));
+				}));
+
+		if (largestFile.isEmpty()) {
+			throw new IllegalStateException("no matching json files found");
+		}
+
+		System.err.println("Loading from: " + largestFile.get().getPath());
+
+		return OBJECT_MAPPER.readValue(largestFile.get(), new TypeReference<List<NNInstance>>() {
+		});
+	}
 
 	@Override
 	public void init() throws Exception {
@@ -129,9 +190,8 @@ public class PALogic extends GameLogic {
 		nnPostprocessComputeShader = new NNPostprocessComputeShader();
 
 		instanceCount = Math.min(MAX_AGENTS, AGENT_BATCHES * AGENT_PER_BATCHES);
-		GlobalLogger
-				.info("Instancing: " + instanceCount + " instances on: " + AGENT_BATCHES + " * " + AGENT_PER_BATCHES + " for "
-						+ NNComputeComputeShader.LOCAL_SIZE + " = " + nnComputeComputeShader.getGlobalGroup(instanceCount));
+		GlobalLogger.info("Instancing: " + instanceCount + " instances on: " + AGENT_BATCHES + " * " + AGENT_PER_BATCHES + " for "
+				+ NNComputeComputeShader.LOCAL_SIZE + " = " + nnComputeComputeShader.getGlobalGroup(instanceCount));
 
 		final int weightCountTotal = struct.computeWeightCount() * instanceCount;
 		weightsValueArray = new SyntheticFloatAttribArray("weights", WEIGHTS_IDX, weightCountTotal, BufferType.SHADER_STORAGE, false);
@@ -146,7 +206,11 @@ public class PALogic extends GameLogic {
 		outputNeuronsValueArray = new SyntheticFloatAttribArray("output", OUTPUT_IDX, outputCountTotal, BufferType.SHADER_STORAGE, false);
 
 		final int physicsVec4sTotal = 2 * instanceCount;
-		physicsVec4sValueArray = new SyntheticVec4fAttribArray("physics", PHYSICS_IDX, physicsVec4sTotal, BufferType.SHADER_STORAGE, false,
+		physicsVec4sValueArray = new SyntheticVec4fAttribArray("physics",
+				PHYSICS_IDX,
+				physicsVec4sTotal,
+				BufferType.SHADER_STORAGE,
+				false,
 				1);
 
 		transformsValueArray = new SyntheticMat4fAttribArray("transforms", TRANSFORMS_IDX, instanceCount, BufferType.ARRAY, false);
@@ -185,17 +249,28 @@ public class PALogic extends GameLogic {
 
 		GlobalLogger.info("Cleared all buffers");
 
-		final NNInstance inst = new NNInstance(struct, new float[struct.computeWeightCount()], new float[struct.computeBiasCount()]);
 		final List<NNInstance> instances = new ArrayList<>();
-		for (int i = 0; i < instanceCount; i++) {
-			final NNInstance nInst = inst.clone();
-			for (int j = 0; j < inst.getWeights().length; j++) {
-				nInst.getWeights()[j] = (float) (Math.random() * 2 - 1);
+		if (RELOAD_LATEST) {
+			instances.addAll(loadLatestOutput());
+			assert instances.get(0).getStructure().equals(struct) : struct + " <> " + instances.get(0).getStructure();
+			System.err.println("Reloaded: " + instances);
+			IntStream.range(0, instanceCount - instances.size()).forEach(i -> {
+				final NNInstance p1 = instances.get(i % instances.size());
+				final NNInstance p2 = instances.get((i + rand.nextInt(instances.size())) % instances.size());
+				instances.add(mutate(crossover(p1, p2)));
+			});
+		} else {
+			final NNInstance inst = new NNInstance(struct, new float[struct.computeWeightCount()], new float[struct.computeBiasCount()]);
+			for (int i = 0; i < instanceCount; i++) {
+				final NNInstance nInst = inst.clone();
+				for (int j = 0; j < inst.getWeights().length; j++) {
+					nInst.getWeights()[j] = (float) (Math.random() * 2 - 1);
+				}
+				for (int j = 0; j < inst.getBiases().length; j++) {
+					nInst.getBiases()[j] = (float) (Math.random() * 2 - 1) * MUTATE_STRENGTH;
+				}
+				instances.add(nInst);
 			}
-			for (int j = 0; j < inst.getBiases().length; j++) {
-				nInst.getBiases()[j] = (float) (Math.random() * 2 - 1) * MUTATE_STRENGTH;
-			}
-			instances.add(nInst);
 		}
 
 		upload(instances);
@@ -203,7 +278,7 @@ public class PALogic extends GameLogic {
 		resetNNs();
 
 		final float[] arr = physicsVec4sValueArray.read(0, physicsVec4sValueArray.getLength());
-		System.err.println("Physics: " + Arrays.toString(arr));
+//		System.err.println("Physics: " + Arrays.toString(arr));
 
 		// draw
 		directShader = new DirectShader();
@@ -212,10 +287,13 @@ public class PALogic extends GameLogic {
 		mesh = ObjLoader.loadMesh("pendulum", null, "classpath:/models/pendulum.obj");
 		instanceEmitter = new LimitedInstanceEmitter("instances", mesh, instanceCount, transformsValueArray);
 
+		triangleMesh = ObjLoader.loadMesh("triangle", null, "classpath:/models/triangle.obj");
+		triangleEmitter = new LimitedInstanceEmitter("triangles", triangleMesh, instanceCount, transformsValueArray);
+
 		scene = new Scene3D("scene");
 		scene.setCamera(Camera.orthographicCamera3D());
 		scene.getCamera().getProjection().setSize(0.4f);
-		scene.getCamera().setPosition(new Vector3f(0, 10, 0));
+		scene.getCamera().setPosition(new Vector3f(0, -10, 0));
 		scene.getCamera().lookAt(scene.getCamera().getPosition(), GameEngine.ZERO, GameEngine.Z_POS);
 		scene.getCamera().updateMatrix();
 
@@ -231,7 +309,7 @@ public class PALogic extends GameLogic {
 
 	private void resetNNs() {
 		fill(physicsVec4sValueArray,
-				new Vector4f[] { new Vector4f(0, STARTING_ANGLE, 0, 0), new Vector4f(0, 0, 0, 0) });
+				new Vector4f[] { new Vector4f(STARTING_POS, STARTING_ANGLE, 0, 0), new Vector4f(STARTING_VEL, STARTING_ANGLE_VEL, 0, 0) });
 		clear(transformsValueArray);
 		clear(gradeNeuronsValueArray);
 		clear(inputNeuronsValueArray);
@@ -275,7 +353,7 @@ public class PALogic extends GameLogic {
 	protected BooleanPointer done = new BooleanPointer(false);
 	protected IntPointer totalGenerations = new IntPointer(0);
 
-//	final List<NNInstance> allTimeAgents = new ArrayList<>();
+	protected Random rand = new Random();
 
 	private void readBack() {
 		if (done.getValue()) {
@@ -287,38 +365,32 @@ public class PALogic extends GameLogic {
 
 		{
 			final float[] outs = outputNeuronsValueArray.read(0, outputNeuronsValueArray.getLength());
-			System.err.println("Outputs: " + Arrays.toString(outs));
-			final DoubleSummaryStatistics stats = Arrays
-					.stream(PCUtils.castObject(outs))
+//			System.err.println("Outputs: " + Arrays.toString(outs));
+			final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(outs))
 					.mapToDouble(c -> (double) (Float) (Object) c)
 					.summaryStatistics();
-			System.err
-					.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
-							+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
+			System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+					+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
 		}
 		{
 			final float[] outs = physicsVec4sValueArray.read(0, physicsVec4sValueArray.getLength());
-			System.err.println("Physics: " + Arrays.toString(outs));
-			final DoubleSummaryStatistics stats = Arrays
-					.stream(PCUtils.castObject(outs))
+//			System.err.println("Physics: " + Arrays.toString(outs));
+			final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(outs))
 					.mapToDouble(c -> (double) (Float) (Object) c)
 					.summaryStatistics();
-			System.err
-					.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
-							+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
+			System.err.println("Stats: (sum) " + stats.getSum() + " (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) "
+					+ stats.getMax() + " (stdDev) " + PCUtils.stdDev(outs));
 		}
 
 		final float[] arr = gradeNeuronsValueArray.read(0, gradeNeuronsValueArray.getLength());
-		System.err.println("Grades: " + Arrays.toString(arr));
-		final DoubleSummaryStatistics stats = Arrays
-				.stream(PCUtils.castObject(arr))
+//		System.err.println("Grades: " + Arrays.toString(arr));
+		final DoubleSummaryStatistics stats = Arrays.stream(PCUtils.castObject(arr))
 				.mapToDouble(c -> (double) (Float) (Object) c)
 				.summaryStatistics();
 		final double stdDev = PCUtils.stdDev(arr);
 		final double median = PCUtils.median(arr);
-		System.err
-				.println("Stats: (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) " + stats.getMax() + " (stdDev) "
-						+ stdDev + " (median) " + median);
+		System.err.println("Stats: (avg) " + stats.getAverage() + " (min) " + stats.getMin() + " (max) " + stats.getMax() + " (stdDev) "
+				+ stdDev + " (median) " + median);
 
 		frame.getAvgHistory().add(stats.getAverage());
 		frame.getMaxHistory().add(stats.getMax());
@@ -329,33 +401,39 @@ public class PALogic extends GameLogic {
 		});
 
 		final int[] topIndices = PCUtils.getMaxIndices(arr, TOP_AGENTS);
-		System.err
-				.println("Keeping agents: "
-						+ Arrays.stream(topIndices).mapToObj(Integer::toString).sorted().collect(Collectors.joining(", ")));
+		System.err.println(
+				"Keeping agents: " + Arrays.stream(topIndices).mapToObj(Integer::toString).sorted().collect(Collectors.joining(", ")));
 		final List<NNInstance> topAgents = new ArrayList<>();
-//		System.err.println(Arrays.toString(weightsValueArray.read(0, weightsValueArray.getLength())));
 		for (int index : topIndices) {
 			final float[] weights = weightsValueArray.read(index * struct.computeWeightCount(), struct.computeWeightCount());
 			final float[] biases = biasesValueArray.read(index * struct.computeBiasCount(), struct.computeBiasCount());
-//			System.err.println(Arrays.toString(weights) + " " + Arrays.toString(biases));
 			topAgents.add(new NNInstance(struct, weights, biases));
 		}
 		final List<NNInstance> uniqueTopAgents = topAgents.stream().distinct().toList();
-		System.err
-				.println("Top agents hashes: "
-						+ topAgents.parallelStream().map(n -> Integer.toString(n.hashCode())).sorted().collect(Collectors.joining(", ")));
-//			frame.addPanel(topAgents.get(0));
-//		topAgents.forEach(c -> {
-//			if (allTimeAgents.contains(c))
-//				System.err.println("all time: " + c);
-//		});
-//		allTimeAgents.retainAll(topAgents);
-//		allTimeAgents.addAll(topAgents);
+		if (uniqueTopAgents.size() < topAgents.size()) {
+			System.err.println("Dropped " + (topAgents.size() - uniqueTopAgents.size()) + " duplicates");
+		}
+		System.err.println("Top agents hashes: "
+				+ uniqueTopAgents.parallelStream().map(n -> Integer.toString(n.hashCode())).sorted().collect(Collectors.joining(", ")));
+
+		NextTask.create(() -> {
+			RuntimeMXBean bean = ManagementFactory.getRuntimeMXBean();
+			final File f = new File("./output/" + bean.getStartTime() + "/top."
+					+ PCUtils.leftPadString(Integer.toString(totalGenerations.getValue()), "0", 5) + ".json");
+			f.getParentFile().mkdirs();
+			OBJECT_MAPPER.writeValue(f, uniqueTopAgents);
+		}).catch_(Throwable::printStackTrace).runAsync();
+
+		triangleEmitter.setParticleCount(uniqueTopAgents.size());
 
 		final List<NNInstance> allAgents = new ArrayList<>(uniqueTopAgents);
-		IntStream
-				.range(0, instanceCount - uniqueTopAgents.size())
-				.forEach(i -> allAgents.add(mutate(uniqueTopAgents.get(i % uniqueTopAgents.size()).clone())));
+		IntStream.range(0, instanceCount - uniqueTopAgents.size()).forEach(i -> {
+			final NNInstance p1 = uniqueTopAgents.get(i % uniqueTopAgents.size());
+			final NNInstance p2 = uniqueTopAgents.get((i + rand.nextInt(uniqueTopAgents.size())) % uniqueTopAgents.size());
+			allAgents.add(mutate(crossover(p1, p2)));
+		});
+
+		STARTING_ANGLE = (float) PCUtils.map(PCUtils.map(rand.nextDouble(), 0, 1, 0.99f, 1), 0, 1, -Math.PI, Math.PI);
 
 		System.err.println("New: " + allAgents.size() + " for gen: " + totalGenerations.getValue());
 		upload(allAgents);
@@ -368,26 +446,42 @@ public class PALogic extends GameLogic {
 			startSelfRecurringTasks();
 	}
 
-	Random rnd = new Random();
+	private NNInstance crossover(NNInstance p1, NNInstance p2) {
+		final NNInstance child = p1.clone();
+
+		for (int i = 0; i < child.weights.length; i++) {
+			if (rand.nextBoolean()) {
+				child.weights[i] = p2.weights[i];
+			}
+		}
+
+		for (int i = 0; i < child.biases.length; i++) {
+			if (rand.nextBoolean()) {
+				child.biases[i] = p2.biases[i];
+			}
+		}
+
+		return child;
+	}
 
 	private NNInstance mutate(NNInstance nn) {
-		if (totalGenerations.get() > 10000) {
-			return nn;
-		}
+//		if (totalGenerations.get() > 20) {
+//			return nn;
+//		}
 //		final float[] prevW = nn.weights.clone();
 //		final float[] prevB = nn.biases.clone();
 
 		// Mutate weights
 		for (int i = 0; i < nn.weights.length; i++) {
-			if (rnd.nextFloat() < MUTATE_RATE) {
-				nn.weights[i] = PCUtils.clamp(-10f, 10f, nn.weights[i] + (float) rnd.nextGaussian() / 40 * MUTATE_STRENGTH);
+			if (rand.nextFloat() < MUTATE_RATE) {
+				nn.weights[i] = PCUtils.clamp(-10f, 10f, nn.weights[i] + (float) rand.nextGaussian() / 40 * MUTATE_STRENGTH);
 			}
 		}
 
 		// Mutate biases
 		for (int i = 0; i < nn.biases.length; i++) {
-			if (rnd.nextFloat() < MUTATE_RATE) {
-				nn.biases[i] += rnd.nextGaussian() * MUTATE_STRENGTH;
+			if (rand.nextFloat() < MUTATE_RATE) {
+				nn.biases[i] += rand.nextGaussian() * MUTATE_STRENGTH;
 			}
 		}
 
@@ -407,9 +501,8 @@ public class PALogic extends GameLogic {
 
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.INPUT_SIZE, struct.getInputCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.LAYER_COUNT, struct.getInnerLayers().length + 1);
-		nnComputeComputeShader
-				.setUniform(NNComputeComputeShader.LAYER_SIZE,
-						PCUtils.combineArrays(struct.getInnerLayers(), new int[] { struct.getOutputCount() }));
+		nnComputeComputeShader.setUniform(NNComputeComputeShader.LAYER_SIZE,
+				PCUtils.combineArrays(struct.getInnerLayers(), new int[] { struct.getOutputCount() }));
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.WEIGHT_OFFSET_PER_INSTANCE, struct.computeWeightCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.BIAS_OFFSET_PER_INSTANCE, struct.computeBiasCount());
 		nnComputeComputeShader.setUniform(NNComputeComputeShader.INSTANCE_COUNT, instanceCount);
@@ -447,11 +540,12 @@ public class PALogic extends GameLogic {
 //		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.INPUT_SIZE, struct.getInputCount());
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.INSTANCE_COUNT, instanceCount);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.GRAVITY, GRAVITY);
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.PENDULUM_LENGTH, 1f);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.PENDULUM_LENGTH, PENDULUM_LENGTH);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.BOUNDS, new Vector2f(-1, 1).mul(WIDTH / 2));
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.FRICTION, 0.25f);
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ANGULAR_FRICTION, 0.4f);
-		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_BOUNDS, new Vector2f(-1, 1));
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.FRICTION, FRICTION);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ANGULAR_FRICTION, ANGULAR_FRICTION);
+		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_BOUNDS,
+				new Vector2f(-ACCELERATION_MAX, ACCELERATION_MAX));
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.ACCELERATION_FACTOR, ACCELERATION_FACTOR);
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.USER_FORCE_DIR, new Vector2f());
 		nnPostprocessComputeShader.setUniform(NNPostprocessComputeShader.USER_FORCE_SOURCE, new Vector2f());
@@ -462,9 +556,8 @@ public class PALogic extends GameLogic {
 		final Vector3ic neededGlobalGroups = clearVec4fComputeShader.getGlobalGroup(instanceCount);
 //		GlobalLogger.info("Computed: " + neededGlobalGroups + " for: " + instanceCount);
 		GL_W.glDispatchCompute(neededGlobalGroups.x(), neededGlobalGroups.y(), neededGlobalGroups.z());
-		GL_W
-				.glMemoryBarrier(
-						GL_W.GL_SHADER_STORAGE_BARRIER_BIT | GL_W.GL_BUFFER_UPDATE_BARRIER_BIT | GL_W.GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+		GL_W.glMemoryBarrier(
+				GL_W.GL_SHADER_STORAGE_BARRIER_BIT | GL_W.GL_BUFFER_UPDATE_BARRIER_BIT | GL_W.GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 //		GlobalLogger.info("Post-processed: " + instanceCount);
 
 //		final float[] arr = new float[physicsVec4sValueArray.getLength() * physicsVec4sValueArray.getElementComponentCount()];
@@ -499,12 +592,12 @@ public class PALogic extends GameLogic {
 		if (REAL_TIME) {
 			compute();
 			postProcess(dTime);
-			final float[] output = outputNeuronsValueArray.read(0, outputNeuronsValueArray.getLength());
-			System.err.println("O " + Arrays.toString(output));
-			final float[] grades = gradeNeuronsValueArray.read(0, gradeNeuronsValueArray.getLength());
-			System.err.println("G " + Arrays.toString(grades));
-			final float[] inputs = inputNeuronsValueArray.read(0, inputNeuronsValueArray.getLength());
-			System.err.println("I " + Arrays.toString(inputs) + "\n");
+//			final float[] output = outputNeuronsValueArray.read(0, outputNeuronsValueArray.getLength());
+//			System.err.println("O " + Arrays.toString(output));
+//			final float[] grades = gradeNeuronsValueArray.read(0, gradeNeuronsValueArray.getLength());
+//			System.err.println("G " + Arrays.toString(grades));
+//			final float[] inputs = inputNeuronsValueArray.read(0, inputNeuronsValueArray.getLength());
+//			System.err.println("I " + Arrays.toString(inputs) + "\n");
 			if (iterationCount.increment() < MAX_ITERATIONS) {
 				iterationFrame.increment();
 			} else {
@@ -524,25 +617,28 @@ public class PALogic extends GameLogic {
 
 		scene.getCamera().getProjection().update(window.getSize());
 
+		render(instanceEmitter);
+		render(triangleEmitter);
+	}
+
+	private void render(InstanceEmitter emit) {
 		instanceDirectShader.bind();
-		mesh.bind();
+		emit.bind();
 		for (int i = 0; i < 4; i++) {
-			GL_W.glVertexAttribDivisor(5 + i, 1);
-			GL_W.glEnableVertexAttribArray(5 + i);
+			GL_W.glVertexAttribDivisor(InstanceEmitter.TRANSFORM_BUFFER_INDEX + i, 1);
+			GL_W.glEnableVertexAttribArray(InstanceEmitter.TRANSFORM_BUFFER_INDEX + i);
 		}
 
 		instanceDirectShader.setUniform(DirectShader.HAS_TEXTURE, false);
-		instanceDirectShader.setUniformUnsigned(DirectShader.INSTANCE_COUNT, instanceEmitter.getParticleCount());
+		instanceDirectShader.setUniformUnsigned(DirectShader.INSTANCE_COUNT, instanceCount);
 		instanceDirectShader.setUniform(RenderShader.TRANSFORMATION_MATRIX, GameEngine.IDENTITY_MATRIX4F);
 		instanceDirectShader.setUniform(RenderShader.VIEW_MATRIX, scene.getCamera().getViewMatrix());
 		instanceDirectShader.setUniform(RenderShader.PROJECTION_MATRIX, scene.getCamera().getProjection().getProjectionMatrix());
 
-		GL_W
-				.glDrawElementsInstanced(instanceDirectShader.getBeginMode().getGlId(),
-						mesh.getIndicesCount(),
-						GL_W.GL_UNSIGNED_INT,
-						0,
-						instanceEmitter.getParticleCount());
+		GL_W.glDrawElementsInstanced(instanceDirectShader.getBeginMode()
+				.getGlId(), emit.getParticleMesh().getIndicesCount(), GL_W.GL_UNSIGNED_INT, 0, emit.getParticleCount());
+
+		emit.unbind();
 	}
 
 	@Override
@@ -551,6 +647,10 @@ public class PALogic extends GameLogic {
 			mesh.cleanup();
 		if (instanceEmitter != null)
 			instanceEmitter.cleanup();
+		if (triangleMesh != null)
+			triangleMesh.cleanup();
+		if (triangleEmitter != null)
+			triangleEmitter.cleanup();
 		if (clearFloatComputeShader != null)
 			clearFloatComputeShader.cleanup();
 		if (clearVec4fComputeShader != null)
