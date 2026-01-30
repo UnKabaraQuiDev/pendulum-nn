@@ -76,7 +76,7 @@ public class PALogic extends GameLogic {
 	public static final float FIXED_D_TIME = 1f / UPS;
 	public static final int MAX_ITERATIONS = UPS * VIRTUAL_SECONDS;
 	public static final int TOP_AGENTS = 20;
-	public static final int AGENT_BATCHES = 4;
+	public static final int AGENT_BATCHES = 1;
 	public static final int MAX_AGENTS = 10_000;
 
 	public static final float MUTATE_RATE = 0.5f;
