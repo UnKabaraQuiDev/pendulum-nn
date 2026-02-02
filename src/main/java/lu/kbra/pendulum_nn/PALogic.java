@@ -313,9 +313,9 @@ public class PALogic extends GameLogic {
 	final Vector2f prevA, prevB = prevA = new Vector2f();
 
 	private void resetNNs() {
-		float posScale = 0.005f * WIDTH;
-		float rotScale = 0.002f;
-		float vecScale = 0.005f;
+		float posScale = 0.05f * WIDTH;
+		float rotScale = 0.02f;
+		float vecScale = 0.05f;
 
 		prevA.add(gaussianDelta(posScale), gaussianDelta(rotScale));
 		prevB.add(gaussianDelta(vecScale), gaussianDelta(vecScale));
