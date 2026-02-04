@@ -69,8 +69,6 @@ public class PALogic extends GameLogic {
 	public static final int TRANSFORMS_IDX = InstanceEmitter.TRANSFORM_BUFFER_INDEX;
 	public static final int GRADE_IDX = InstanceEmitter.FIRST_BUFFER_INDEX;
 
-	public static final boolean REAL_TIME = false;
-
 	public static final int VIRTUAL_SECONDS = 300;
 	public static final int UPS = 60;
 	public static final float FIXED_D_TIME = 1f / UPS;
@@ -93,7 +91,8 @@ public class PALogic extends GameLogic {
 	public static final float FRICTION = 0.25f;
 	public static final float PENDULUM_LENGTH = 1f;
 
-	public static final boolean RELOAD_LATEST = false;
+	public static final boolean REAL_TIME = true;
+	public static final boolean RELOAD_LATEST = true;
 
 	public static final boolean FIXED_SIM_PARAMS = true;
 	public static float STARTING_ANGLE = (float) Math.PI / 100 * 20;

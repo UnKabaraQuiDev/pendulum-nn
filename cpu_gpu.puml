@@ -1,0 +1,60 @@
+@startuml
+title PALogic - NN Pipeline (CPU <-> GPU) + Evolution
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam roundcorner 10
+skinparam ArrowColor black
+skinparam activity {
+  BorderColor black
+  BackgroundColor white
+  FontColor black
+}
+skinparam note {
+  BorderColor black
+  BackgroundColor white
+}
+
+start
+
+partition "CPU (Java) - Setup" {
+  :Build NNStructure (inputs=5, hidden=1/1/1, outputs=1);
+  :Allocate GPU buffers (weights, biases, input, output, physics, grade, transforms);
+  :Initialize population\n(random or reload latest top JSON);
+  :Upload weights/biases to GPU;
+  :Reset physics state and clear grade;
+}
+
+partition "GPU - Per Step (Compute Shaders)" {
+  repeat
+    :NN Forward Pass\n(nn_compute.comp)\n- Read input\n- Read weights+biases\n- Forward pass\n- Write output;
+    :Physics + Grade + Next Inputs\n(nn_postprocess.comp)\n- Read output\n- Update physics\n- Add fitness (grade)\n- Write next inputs\n- Write transforms;
+  repeat while (iteration < MAX_ITERATIONS?) is (yes)
+}
+
+partition "CPU (Java) - End of Episode" {
+  :Read back grade buffer;
+  :Select TOP agents\n(getMaxIndices);
+  :Read back weights/biases\nfor selected agents;
+  :Save top agents to JSON\n(top.XXXXX.json);
+}
+
+partition "CPU (Java) - Evolution" {
+  :Create new population;
+  while (population not full?) is (yes)
+    :Pick parents from survivors;
+    :Crossover\n(gene-wise choose from parent A/B);
+    :Mutation\n(gaussian noise)\n- rate=MUTATE_RATE\n- strength=MUTATE_STRENGTH\n- clamp if needed;
+    :Add child to population;
+  endwhile (no)
+  :Upload new weights/biases to GPU;
+  :Reset physics state and clear grade;
+}
+
+partition "GPU - Resume Next Generation" {
+  :Postprocess one step\n(to seed inputs from physics);
+}
+
+stop
+
+@enduml
