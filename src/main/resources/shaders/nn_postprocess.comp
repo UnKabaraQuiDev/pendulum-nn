@@ -38,6 +38,14 @@ uniform float mass;
 uniform vec2 bounds;
 uniform vec2 accBounds;
 
+uniform bool overwriteCartAcceleration;
+uniform float owCartAcc;
+
+uniform bool  applyExternalForce;
+uniform vec2  externalForceDir;   // normalized direction
+uniform float externalForce;      // force magnitude
+uniform vec2  externalForcePos;   // source position in world space
+
 uniform bool debugPerfectScore;
 
 uint flatIndex;
@@ -66,13 +74,26 @@ void computeCart(inout float cartAcc) {
 }
 
 void computePendulum(float cartAcc) {
-	position.y = mod(position.y + PI, 2*PI) - PI;
+	position.y = mod(position.y + PI, 2.0 * PI) - PI;
 
-	float angle = position.y;
+	float angle    = position.y;
 	float angleVel = velocity.y;
-	
+
 	float alpha = (cartAcc * cos(angle) - gravity * sin(angle)) / pendulumLength;
-	
+
+	if (applyExternalForce) {
+		vec2 bobPos = vec2(position.y, 0) + vec2(
+			sin(angle) * pendulumLength,
+			-cos(angle) * pendulumLength
+		);
+
+		vec2 r = bobPos - externalForcePos;
+		vec2 f = normalize(externalForceDir) * externalForce;
+
+		float torque = r.x * f.y - r.y * f.x;
+		alpha += torque / (pendulumLength * pendulumLength);
+	}
+
 	velocity.y += (alpha - angularFriction * velocity.y) * dTime;
 	position.y += velocity.y * dTime;
 }
@@ -124,7 +145,7 @@ void main() {
 	position = states[flatIndex * 2 + 0];
 	velocity = states[flatIndex * 2 + 1];
 
-	float acc = clamp(nnOutput[flatIndex] * accFactor, accBounds.x, accBounds.y);
+	float acc = overwriteCartAcceleration ? owCartAcc : clamp(nnOutput[flatIndex] * accFactor, accBounds.x, accBounds.y);
 
 	computeCart(acc);
 	computePendulum(acc);
