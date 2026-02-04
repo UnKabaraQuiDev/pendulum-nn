@@ -93,11 +93,12 @@ public class PALogic extends GameLogic {
 	public static final float FRICTION = 0.25f;
 	public static final float PENDULUM_LENGTH = 1f;
 
-	public static final boolean RELOAD_LATEST = true;
+	public static final boolean RELOAD_LATEST = false;
 
+	public static final boolean FIXED_SIM_PARAMS = true;
 	public static float STARTING_ANGLE = (float) Math.PI / 100 * 20;
-	public static float STARTING_POS = 1;
-	public static float STARTING_ANGLE_VEL = -1f;
+	public static float STARTING_POS = -1;
+	public static float STARTING_ANGLE_VEL = 2f;
 	public static float STARTING_VEL = 0f;
 
 	public static int AGENT_PER_BATCHES;
@@ -322,7 +323,12 @@ public class PALogic extends GameLogic {
 
 		System.err.println("Starting conditions: " + prevA.x + ", " + prevA.y + " & " + prevB.x + ", " + prevB.y);
 
-		fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(prevA.x, prevA.y, 0, 0), new Vector4f(prevB.x, prevB.y, 0, 0) });
+		if (FIXED_SIM_PARAMS) {
+			fill(physicsVec4sValueArray,
+					new Vector4f[] { new Vector4f(STARTING_POS, STARTING_ANGLE, 0, 0), new Vector4f(STARTING_VEL, STARTING_ANGLE_VEL, 0, 0) });
+		} else {
+			fill(physicsVec4sValueArray, new Vector4f[] { new Vector4f(prevA.x, prevA.y, 0, 0), new Vector4f(prevB.x, prevB.y, 0, 0) });
+		}
 
 		clear(transformsValueArray);
 		clear(gradeNeuronsValueArray);

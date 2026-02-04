@@ -130,7 +130,7 @@ float bell(float x, vec2 size) {
 float grade() {
 	float x = position.x;
 	float a = position.y;
-	return (exp(-abs(3 * x / ((bounds.y - bounds.x) / 2))) - exp(-3)) / (1 - exp(-3)) * (1 - exp(- (a*a) / (2 * PI*PI))) * abs(a/3);
+	return (exp(-abs(3 * x / ((bounds.y - bounds.x) / 2))) - exp(-3)) / (1 - exp(-3)) * (0.5 * (1.0 - cos(a))); // (1 - exp(- (a*a) / (2 * PI*PI))) * abs(a/3);
 	// return bell(position.x, bounds) * (1.0 - bell(position.y, vec2(-PI, PI))); // (1-bell(abs(abs(position.y) - PI), vec2(0, PI)));
 }
 
