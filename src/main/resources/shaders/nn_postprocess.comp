@@ -14,8 +14,16 @@ layout(std430, binding = 4) buffer PhysicsState {
 // vx, angleVel, 0, 0
 };
 
-layout(std430, binding = 5) writeonly buffer Transforms {
-	mat4 model[];
+layout(std430, binding = 5) writeonly buffer BaseTransforms {
+	mat4 baseModel[];
+};
+
+layout(std430, binding = 6) writeonly buffer ArmTransforms {
+	mat4 armModel[];
+};
+
+layout(std430, binding = 7) writeonly buffer HeadTransforms {
+	mat4 headModel[];
 };
 
 layout(std430, binding = 0) buffer NNInput {
@@ -43,7 +51,7 @@ uniform float owCartAcc;
 
 uniform bool  applyExternalForce;
 uniform vec2  externalForceDir;   // normalized direction
-uniform float externalForce;      // force magnitude
+uniform float externalForce;	  // force magnitude
 uniform vec2  externalForcePos;   // source position in world space
 
 uniform bool debugPerfectScore;
@@ -53,30 +61,30 @@ vec4 position;
 vec4 velocity;
 
 void computeCart(inout float cartAcc) {
-    float v = velocity.x;
+	float v = velocity.x;
 
-    if (abs(v) < 1e-4) v = 0.0;
+	if (abs(v) < 1e-4) v = 0.0;
 
-    bool blocked =
-        (position.x <= bounds.x && cartAcc < 0.0) ||
-        (position.x >= bounds.y && cartAcc > 0.0);
+	bool blocked =
+		(position.x <= bounds.x && cartAcc < 0.0) ||
+		(position.x >= bounds.y && cartAcc > 0.0);
 
-    if (blocked) {
-        cartAcc = 0.0;
-        v = 0.0;
-    }
+	if (blocked) {
+		cartAcc = 0.0;
+		v = 0.0;
+	}
 
-    v += (cartAcc - friction * v) * dTime;
-    position.x += v * dTime;
+	v += (cartAcc - friction * v) * dTime;
+	position.x += v * dTime;
 
-    position.x = clamp(position.x, bounds.x, bounds.y);
-    velocity.x = v;
+	position.x = clamp(position.x, bounds.x, bounds.y);
+	velocity.x = v;
 }
 
 void computePendulum(float cartAcc) {
 	position.y = mod(position.y + PI, 2.0 * PI) - PI;
 
-	float angle    = position.y;
+	float angle	= position.y;
 	float angleVel = velocity.y;
 
 	float alpha = (cartAcc * cos(angle) - gravity * sin(angle)) / pendulumLength;
@@ -108,17 +116,39 @@ void computeTransform() {
 		position.x = bounds.x;
 	}
 
-    float angle = position.y;
-    float x = clamp(position.x, bounds.x, bounds.y);
-    float c = cos(angle);
-    float s = sin(angle);
+	float angle = position.y;
+	float x = clamp(position.x, bounds.x, bounds.y);
+	float c = cos(angle);
+	float s = sin(angle);
 
-    model[flatIndex] = mat4(
-        c,   0,  -s,   0,
-        0,   1,   0,   0,
-        s,   0,   c,   0,
-        x,   float(flatIndex+1)/float(instanceCount),   0,   1
-    );
+	mat4 scale = mat4(
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, pendulumLength, 0,
+		0, 0, 0, 1
+	);
+	mat4 rotate = mat4(
+		c,  0, -s, 0,
+		0,  1,  0, 0,
+		s,  0,  c, 0,
+		0,  0,  0, 1
+	);
+	mat4 translate = mat4(
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		x, float(flatIndex+1)/float(instanceCount), 0, 1
+	);
+	mat4 translateHead = mat4(
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, float(flatIndex+1)/float(instanceCount), -pendulumLength, 1
+	);
+
+	baseModel[flatIndex] = translate * rotate;
+	armModel[flatIndex] = translate * rotate * scale;
+	headModel[flatIndex] = translate * rotate * translateHead;
 }
 
 float bell(float x, vec2 size) {
@@ -151,6 +181,8 @@ void main() {
 	computePendulum(acc);
 
 	computeTransform();
+
+	//  velocity.y = clamp(velocity.y, accBounds.x, accBounds.y);
 
 	states[flatIndex * 2 + 0] = position;
 	states[flatIndex * 2 + 1] = velocity;
