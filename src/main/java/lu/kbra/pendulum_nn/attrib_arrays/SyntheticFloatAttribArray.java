@@ -21,8 +21,7 @@ public class SyntheticFloatAttribArray extends FloatAttribArray {
 		super.length = dataLength;
 	}
 
-	public SyntheticFloatAttribArray(String name, int index, int dataLength, BufferType bufferType, boolean _static,
-			int divisor) {
+	public SyntheticFloatAttribArray(String name, int index, int dataLength, BufferType bufferType, boolean _static, int divisor) {
 		super(name, index, null, bufferType, _static, divisor);
 		super.length = dataLength;
 	}
@@ -44,8 +43,7 @@ public class SyntheticFloatAttribArray extends FloatAttribArray {
 		GL_W.glBufferData(bufferType.getGlId(), length * getElementByteSize(), iStatic ? GL_W.GL_STATIC_DRAW : GL_W.GL_DYNAMIC_DRAW);
 
 		if (bufferType == BufferType.ARRAY) {
-			GL_W.glVertexAttribPointer(index, getElementComponentCount(), GL_W.GL_FLOAT, false, getElementByteSize(),
-					0);
+			GL_W.glVertexAttribPointer(index, getElementComponentCount(), GL_W.GL_FLOAT, false, getElementByteSize(), 0);
 		}
 	}
 
@@ -60,8 +58,7 @@ public class SyntheticFloatAttribArray extends FloatAttribArray {
 		if (iStatic) {
 			throw new UnsupportedOperationException("Array is static.");
 		} else if (nPos.length != super.length) {
-			throw new IllegalArgumentException(
-					"Use #resize to change the array's size (" + nPos.length + "<>" + super.length + ").");
+			throw new IllegalArgumentException("Use #resize to change the array's size (" + nPos.length + "<>" + super.length + ").");
 		}
 		bind();
 
@@ -81,8 +78,7 @@ public class SyntheticFloatAttribArray extends FloatAttribArray {
 		super.length = newSize;
 
 		if (isVertexArray()) {
-			GL_W.glVertexAttribPointer(index, getElementComponentCount(), GL_W.GL_FLOAT, false, getElementByteSize(),
-					0);
+			GL_W.glVertexAttribPointer(index, getElementComponentCount(), GL_W.GL_FLOAT, false, getElementByteSize(), 0);
 		}
 	}
 
@@ -99,8 +95,7 @@ public class SyntheticFloatAttribArray extends FloatAttribArray {
 		super.length = nPos.length;
 
 		if (isVertexArray()) {
-			GL_W.glVertexAttribPointer(index, getElementComponentCount(), GL_W.GL_FLOAT, false, getElementByteSize(),
-					0);
+			GL_W.glVertexAttribPointer(index, getElementComponentCount(), GL_W.GL_FLOAT, false, getElementByteSize(), 0);
 		}
 	}
 

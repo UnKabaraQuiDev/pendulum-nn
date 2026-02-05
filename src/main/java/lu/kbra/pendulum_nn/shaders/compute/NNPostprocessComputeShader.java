@@ -26,6 +26,7 @@ public class NNPostprocessComputeShader extends ComputeShader {
 	public static final String USER_FORCE_SOURCE = "userForceSource";
 	public static final String HEAD_RADIUS = "headRadius"; // 0.14
 	public static final String MASS = "mass";
+	public static final String DEBUG_PERFECT_SCORE = "debugPerfectScore";
 
 	public NNPostprocessComputeShader() {
 		super(new ComputeShaderPart("classpath:/shaders/nn_postprocess.comp", getBuildingDeps()), LOCAL_SIZE);
@@ -53,6 +54,7 @@ public class NNPostprocessComputeShader extends ComputeShader {
 		createUniform(USER_FORCE_SOURCE);
 		createUniform(HEAD_RADIUS);
 		createUniform(MASS);
+		createUniform(DEBUG_PERFECT_SCORE);
 	}
 
 }
