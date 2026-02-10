@@ -1,0 +1,96 @@
+#version 450
+
+layout(local_size_x = %LOCAL_SIZE_X%, local_size_y = %LOCAL_SIZE_Y%, local_size_z = %LOCAL_SIZE_Z%) in;
+
+#define MAX_LAYERS %MAX_LAYERS%
+#define MAX_NEURONS %MAX_NEURONS%
+
+layout(std430, binding = 0) readonly buffer NNInput {
+	float nnInput[];
+};
+
+layout(std430, binding = 1) readonly buffer NNWeights {
+	float weights[];
+};
+
+layout(std430, binding = 2) readonly buffer NNBiases {
+	float biases[];
+};
+
+layout(std430, binding = 3) writeonly buffer NNOutput {
+	float nnOutput[];
+};
+
+uniform int inputSize;					// number of inputs per instance
+uniform int layerCount;					// number of layers
+uniform int layerSize[MAX_LAYERS];		// neurons per layer
+uniform int weightOffsetPerInstance;	// total weights per instance
+uniform int biasOffsetPerInstance;		// total biases per instance
+uniform int instanceCount;
+uniform int activationFunction;
+
+float activation(float x) {
+	switch(activationFunction) {
+		case %RELU%:
+			return max(x, 0.0);
+		case %SIGMOID%:
+			return 1.0 / (1.0 + exp(-x));
+		case %TANH%:
+			return tanh(x); // (exp(x) - exp(-x)) / (exp(x) + exp(-x));
+	}
+}
+
+void main() {
+	uvec3 gid = gl_GlobalInvocationID;
+	uint flatIndex = gid.x
+		+ gid.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x
+		+ gid.z * gl_NumWorkGroups.x * gl_WorkGroupSize.x * gl_NumWorkGroups.y * gl_WorkGroupSize.y;
+	if (flatIndex >= instanceCount)
+		return;
+
+	float actA[MAX_NEURONS];
+	float actB[MAX_NEURONS];
+
+	// --- load input ---
+	uint inBase = flatIndex * inputSize;
+	for (int i = 0; i < inputSize; ++i)
+		actA[i] = nnInput[inBase + i];
+
+	int prevSize = inputSize;
+
+	// --- calculate starting offsets for this instance ---
+	uint weightOffset = flatIndex * weightOffsetPerInstance;
+	uint biasOffset   = flatIndex * biasOffsetPerInstance;
+
+	// --- forward pass ---
+	for (int l = 0; l < layerCount; ++l) {
+		int currSize = layerSize[l];
+
+		for (int o = 0; o < currSize; ++o) {
+			float sum = biases[biasOffset + o];
+			for (int i = 0; i < prevSize; ++i) {
+				sum += weights[
+					weightOffset + o * prevSize + i
+				] * actA[i];
+			}
+			if (isnan(sum) || isinf(sum))
+				sum = 0.0;
+			actB[o] = activation(sum);
+		}
+
+		// advance offsets
+		weightOffset += currSize * prevSize;
+		biasOffset   += currSize;
+
+		// swap buffers
+		for (int i = 0; i < currSize; ++i)
+			actA[i] = actB[i];
+
+		prevSize = currSize;
+	}
+
+	// --- write output ---
+	uint outBase = flatIndex * prevSize;
+	for (int i = 0; i < prevSize; ++i)
+		nnOutput[outBase + i] = actA[i];
+}

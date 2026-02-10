@@ -1,0 +1,1 @@
+{"protocol":"mysql","username":"user","password":"pass","host":"localhost","database":null,"port":3306,"characterSet":"utf8mb4","collation":"utf8mb4_general_ci","engine":"InnoDB"}

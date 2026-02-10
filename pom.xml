@@ -5,74 +5,140 @@
 
 	<groupId>lu.kbra</groupId>
 	<artifactId>pendulum-nn</artifactId>
-	<version>0.1</version>
+	<version>${revision}</version>
+	<packaging>pom</packaging>
+
+	<modules>
+		<module>pendulum-nn-client</module>
+	</modules>
 
 	<properties>
+		<revision>0.1</revision>
 		<java.version>17</java.version>
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
+		<pclib.version>1.0.0</pclib.version>
+		<jackson.version>2.19.2</jackson.version>
+		<spring-ws-ext.version>0.3</spring-ws-ext.version>
+		<spring-boot.version>4.0.2</spring-boot.version>
+		<spring-framework.version>7.0.2</spring-framework.version>
+		<spring-framework.security.version>7.0.2</spring-framework.security.version>
+		<spring-framework.context.version>7.0.2</spring-framework.context.version>
 	</properties>
 
-	<dependencies>
-		<dependency>
-			<groupId>lu.kbra</groupId>
-			<artifactId>gameengine</artifactId>
-			<version>0.1</version>
-		</dependency>
-		<dependency>
-			<groupId>lu.pcy113</groupId>
-			<artifactId>jbcodec</artifactId>
-			<version>2.3</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-databind</artifactId>
-			<version>2.19.2</version>
-		</dependency>
-		<dependency>
-			<groupId>com.fasterxml.jackson.dataformat</groupId>
-			<artifactId>jackson-dataformat-properties</artifactId>
-			<version>2.19.2</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-collections4</artifactId>
-			<version>4.5.0-M3</version>
-		</dependency>
+	<repositories>
+		<repository>
+			<id>nexus.rescue-rush.lu-releases</id>
+			<url>https://nexus.rescue-rush.lu/repository/maven-releases/</url>
+		</repository>
+		<repository>
+			<id>nexus.kbra.lu-releases</id>
+			<url>https://nexus.kbra.lu/repository/maven-releases/</url>
+		</repository>
+	</repositories>
 
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.13.2</version>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>lu.kbra</groupId>
+				<artifactId>gameengine</artifactId>
+				<version>0.1</version>
+			</dependency>
+			<dependency>
+				<groupId>lu.kbra</groupId>
+				<artifactId>pclib-swing</artifactId>
+				<version>${pclib.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>lu.kbra</groupId>
+				<artifactId>pclib-logger</artifactId>
+				<version>${pclib.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>lu.kbra</groupId>
+				<artifactId>pclib-datastruct</artifactId>
+				<version>${pclib.version}</version>
+			</dependency>
 
+			<dependency>
+				<groupId>com.fasterxml.jackson.core</groupId>
+				<artifactId>jackson-databind</artifactId>
+				<version>${jackson.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.fasterxml.jackson.dataformat</groupId>
+				<artifactId>jackson-dataformat-properties</artifactId>
+				<version>${jackson.version}</version>
+			</dependency>
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-shade-plugin</artifactId>
-				<version>3.5.0</version>
-				<executions>
-					<execution>
-						<phase>package</phase>
-						<goals>
-							<goal>shade</goal>
-						</goals>
-						<configuration>
-							<transformers>
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>lu.kbra.pendulum_nn.PAMain</mainClass>
-								</transformer>
-							</transformers>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
-	</build>
+			<dependency>
+				<groupId>lu.rescue-rush</groupId>
+				<artifactId>spring-ws-ext-server</artifactId>
+				<version>${spring-ws-ext.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>lu.rescue-rush</groupId>
+				<artifactId>spring-ws-ext-client</artifactId>
+				<version>${spring-ws-ext.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-websocket</artifactId>
+				<version>${spring-boot.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-web</artifactId>
+				<version>${spring-boot.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-starter-json</artifactId>
+				<version>${spring-boot.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.springframework</groupId>
+				<artifactId>spring-context</artifactId>
+				<version>${spring-framework.context.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-autoconfigure</artifactId>
+				<version>${spring-boot.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.springframework.security</groupId>
+				<artifactId>spring-security-core</artifactId>
+				<version>${spring-framework.security.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springframework</groupId>
+				<artifactId>spring-webmvc</artifactId>
+				<version>${spring-framework.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.apache.tomcat.embed</groupId>
+				<artifactId>tomcat-embed-core</artifactId>
+				<version>10.1.43</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-collections4</artifactId>
+				<version>4.5.0-M3</version>
+			</dependency>
+
+			<dependency>
+				<groupId>junit</groupId>
+				<artifactId>junit</artifactId>
+				<version>4.13.2</version>
+				<scope>test</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 </project>

@@ -1,0 +1,206 @@
+#version 450
+
+#define PI %PI%
+
+layout(local_size_x = %LOCAL_SIZE_X%, local_size_y = %LOCAL_SIZE_Y%, local_size_z = %LOCAL_SIZE_Z%) in;
+
+layout(std430, binding = 3) readonly buffer NNOutput {
+	float nnOutput[];
+};
+
+layout(std430, binding = 4) buffer PhysicsState {
+	vec4 states[];
+// x, angle, 0, 0
+// vx, angleVel, 0, 0
+};
+
+layout(std430, binding = 5) writeonly buffer BaseTransforms {
+	mat4 baseModel[];
+};
+
+layout(std430, binding = 6) writeonly buffer ArmTransforms {
+	mat4 armModel[];
+};
+
+layout(std430, binding = 7) writeonly buffer HeadTransforms {
+	mat4 headModel[];
+};
+
+layout(std430, binding = 0) buffer NNInput {
+	float nnInput[];
+};
+
+layout(std430, binding = 9) buffer NNGrade {
+	float nnGrade[];
+};
+
+uniform float dTime;
+uniform int instanceCount;
+
+uniform float friction;
+uniform float angularFriction;
+uniform float accFactor;
+uniform float gravity;
+uniform float pendulumLength;
+uniform float mass;
+uniform vec2 bounds;
+uniform vec2 accBounds;
+
+uniform bool overwriteCartAcceleration;
+uniform float owCartAcc;
+
+uniform bool  applyExternalForce;
+uniform vec2  externalForceDir;   // normalized direction
+uniform float externalForce;	  // force magnitude
+uniform vec2  externalForcePos;   // source position in world space
+
+uniform bool debugPerfectScore;
+
+uint flatIndex;
+vec4 position;
+vec4 velocity;
+
+void computeCart(inout float cartAcc) {
+	float v = velocity.x;
+
+	if (abs(v) < 1e-4) v = 0.0;
+
+	bool blocked =
+		(position.x <= bounds.x && cartAcc < 0.0) ||
+		(position.x >= bounds.y && cartAcc > 0.0);
+
+	if (blocked) {
+		cartAcc = 0.0;
+		v = 0.0;
+	}
+
+	v += (cartAcc - friction * v) * dTime;
+	position.x += v * dTime;
+
+	position.x = clamp(position.x, bounds.x, bounds.y);
+	velocity.x = v;
+}
+
+void computePendulum(float cartAcc) {
+	position.y = mod(position.y + PI, 2.0 * PI) - PI;
+
+	float angle	= position.y;
+	float angleVel = velocity.y;
+
+	float alpha = (cartAcc * cos(angle) - gravity * sin(angle)) / pendulumLength;
+
+	if (applyExternalForce) {
+		vec2 bobPos = vec2(position.y, 0) + vec2(
+			sin(angle) * pendulumLength,
+			-cos(angle) * pendulumLength
+		);
+
+		vec2 r = bobPos - externalForcePos;
+		vec2 f = normalize(externalForceDir) * externalForce;
+
+		float torque = r.x * f.y - r.y * f.x;
+		alpha += torque / (pendulumLength * pendulumLength);
+	}
+
+	velocity.y += (alpha - angularFriction * velocity.y) * dTime;
+	position.y += velocity.y * dTime;
+}
+
+void computeTransform() {
+	if(flatIndex == 0 && debugPerfectScore) {
+		position.y = PI;
+		position.x = 0;
+	}
+	if(flatIndex == 1 && debugPerfectScore) {
+		position.y = 0;
+		position.x = bounds.x;
+	}
+
+	float angle = position.y;
+	float x = clamp(position.x, bounds.x, bounds.y);
+	float c = cos(angle);
+	float s = sin(angle);
+
+	mat4 scale = mat4(
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, pendulumLength, 0,
+		0, 0, 0, 1
+	);
+	mat4 rotate = mat4(
+		c,  0, -s, 0,
+		0,  1,  0, 0,
+		s,  0,  c, 0,
+		0,  0,  0, 1
+	);
+	mat4 translate = mat4(
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		x, float(flatIndex+1)/float(instanceCount), 0, 1
+	);
+	mat4 translateHead = mat4(
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, float(flatIndex+1)/float(instanceCount), -pendulumLength, 1
+	);
+
+	baseModel[flatIndex] = translate * rotate;
+	armModel[flatIndex] = translate * rotate * scale;
+	headModel[flatIndex] = translate * rotate * translateHead;
+}
+
+float bell(float x, vec2 size) {
+	float L = max(abs(size.x), abs(size.y));
+	float sigma = L / 3.0;
+	return exp(- (x * x) / (2.0 * sigma * sigma));
+}
+
+float grade() {
+	float x = position.x;
+	float a = position.y;
+	return (exp(-abs(3 * x / ((bounds.y - bounds.x) / 2))) - exp(-3)) / (1 - exp(-3)) * (0.5 * (1.0 - cos(a))); // (1 - exp(- (a*a) / (2 * PI*PI))) * abs(a/3);
+	// return bell(position.x, bounds) * (1.0 - bell(position.y, vec2(-PI, PI))); // (1-bell(abs(abs(position.y) - PI), vec2(0, PI)));
+}
+
+void main() {
+	uvec3 gid = gl_GlobalInvocationID;
+	flatIndex = gid.x
+		+ gid.y * gl_NumWorkGroups.x * gl_WorkGroupSize.x
+		+ gid.z * gl_NumWorkGroups.x * gl_WorkGroupSize.x * gl_NumWorkGroups.y * gl_WorkGroupSize.y;
+	if (flatIndex >= instanceCount)
+		return;
+		
+	position = states[flatIndex * 2 + 0];
+	velocity = states[flatIndex * 2 + 1];
+
+	float acc = overwriteCartAcceleration ? owCartAcc : clamp(nnOutput[flatIndex] * accFactor, accBounds.x, accBounds.y);
+
+	computeCart(acc);
+	computePendulum(acc);
+
+	computeTransform();
+
+	//  velocity.y = clamp(velocity.y, accBounds.x, accBounds.y);
+
+	states[flatIndex * 2 + 0] = position;
+	states[flatIndex * 2 + 1] = velocity;
+	
+	nnGrade[flatIndex] += grade() * dTime;
+
+	/*
+		INPUT LAYOUT:
+		 * x
+		 * vX
+		 * angle
+		 * vAngle
+		 * relativeX
+	*/
+	uint inBase = flatIndex * 5;
+	nnInput[inBase + 0] = position.x;
+	nnInput[inBase + 1] = velocity.x;
+	nnInput[inBase + 2] = position.y;
+	nnInput[inBase + 3] = velocity.y;
+	nnInput[inBase + 4] = (position.x - bounds.x) / (bounds.y - bounds.x) * 2 - 1; // [-1 .. 1]
+}
