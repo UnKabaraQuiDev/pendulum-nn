@@ -1,40 +1,21 @@
 package lu.kbra.pendulum_nn.server;
 
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import lu.rescue_rush.spring.ws_ext.common.annotations.WSMapping;
 import lu.rescue_rush.spring.ws_ext.common.annotations.WSResponseMapping;
 import lu.rescue_rush.spring.ws_ext.server.WSExtServerHandler;
 import lu.rescue_rush.spring.ws_ext.server.annotation.AllowAnonymous;
-import lu.rescue_rush.spring.ws_ext.server.component.WSScheduler;
 
 @AllowAnonymous
 @WSMapping(path = "/incoming")
 @Component
 public class IncomingWS extends WSExtServerHandler {
 
-	private static final Logger LOGGER = Logger.getLogger(IncomingWS.class.getName());
-
-	@Autowired
-	private WSScheduler wsExtScheduler;
-
 	@Override
 	public void init() {
 		LOGGER.info("Test1WS (server) initialized");
 		super.DEBUG = true;
-	}
-
-	@Override
-	public void onConnect(WebSocketSessionData sessionData) {
-		LOGGER.info("Sent test from server.");
-		sessionData.send("/test", "test from server to client");
-		wsExtScheduler.scheduleTask(sessionData, () -> {
-			System.out.println("Scheduled task executed!");
-		}, "next", 200, TimeUnit.MILLISECONDS);
 	}
 
 	@AllowAnonymous

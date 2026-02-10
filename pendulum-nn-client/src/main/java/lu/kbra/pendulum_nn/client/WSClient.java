@@ -15,6 +15,17 @@ import lu.rescue_rush.spring.ws_ext.common.annotations.WSMapping;
 public class WSClient extends WSExtClientHandler {
 
 	@Override
+	public void onConnect(WebSocketSessionData sessionData) {
+		super.onConnect(sessionData);
+		super.send("/ping", "Hewwo ᓚ₍ ^. ̫ .^₎");
+	}
+
+	@WSMapping(path = "/pong")
+	public void pong(WebSocketSessionData wsSessionData, String msg) {
+		LOGGER.info("Got pong: " + msg);
+	}
+
+	@Override
 	public WebSocketHttpHeaders buildHttpHeaders() {
 		return new WebSocketHttpHeaders();
 	}
