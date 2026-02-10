@@ -19,6 +19,8 @@ import lu.kbra.pclib.db.base.DataBase;
 import lu.kbra.pclib.db.connector.MySQLDataBaseConnector;
 import lu.kbra.pclib.db.connector.impl.DataBaseConnector;
 import lu.kbra.pclib.db.utils.DataBaseEntryUtils;
+import lu.kbra.pendulum_nn.JacksonObject;
+import lu.kbra.pendulum_nn.server.db.type.JacksonColumn;
 
 @Configuration
 public class DBConfig {
@@ -50,13 +52,20 @@ public class DBConfig {
 	}
 
 	@Bean
-	DataBaseEntryUtils dataBaseEntryUtils() {
-		return new SpringDataBaseEntryUtils();
+	JacksonColumn jacksonColumn(ObjectMapper objMapper) {
+		return new JacksonColumn(objMapper);
+	}
+
+	@Bean
+	DataBaseEntryUtils dataBaseEntryUtils(JacksonColumn jacksonColumn) {
+		final SpringDataBaseEntryUtils dbUtils = new SpringDataBaseEntryUtils();
+		dbUtils.registerClassType(c -> JacksonObject.class.isAssignableFrom(c), c -> jacksonColumn);
+		return dbUtils;
 	}
 
 	@Bean
 	DataBase dataBase(DataBaseConnector dbConnector, @Value("${spring.application.name}") String name,
-			DataBaseEntryUtils dbEntryUtils) {
+			@Qualifier("dataBaseEntryUtils") DataBaseEntryUtils dbEntryUtils) {
 		return new DataBase(dbConnector, PCUtils.camelCaseToSnakeCase(name.replace('.', '_')), dbEntryUtils);
 	}
 

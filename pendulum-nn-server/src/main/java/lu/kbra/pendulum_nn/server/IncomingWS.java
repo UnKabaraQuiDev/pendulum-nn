@@ -13,11 +13,11 @@ import lu.rescue_rush.spring.ws_ext.server.annotation.AllowAnonymous;
 import lu.rescue_rush.spring.ws_ext.server.component.WSScheduler;
 
 @AllowAnonymous
-@WSMapping(path = "/test1")
+@WSMapping(path = "/incoming")
 @Component
-public class Test1WSServer extends WSExtServerHandler {
+public class IncomingWS extends WSExtServerHandler {
 
-	private static final Logger LOGGER = Logger.getLogger(Test1WSServer.class.getName());
+	private static final Logger LOGGER = Logger.getLogger(IncomingWS.class.getName());
 
 	@Autowired
 	private WSScheduler wsExtScheduler;

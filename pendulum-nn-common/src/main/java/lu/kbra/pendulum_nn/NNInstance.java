@@ -3,23 +3,19 @@ package lu.kbra.pendulum_nn;
 import java.util.Arrays;
 import java.util.Objects;
 
-public class NNInstance {
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-	protected NNStructure structure;
+public class NNInstance implements JacksonObject {
+
 	protected float[] weights;
 	protected float[] biases;
 
 	public NNInstance() {
 	}
 
-	public NNInstance(NNStructure structure, float[] weights, float[] biases) {
-		this.structure = structure;
+	public NNInstance(float[] weights, float[] biases) {
 		this.weights = weights;
 		this.biases = biases;
-	}
-
-	public NNStructure getStructure() {
-		return structure;
 	}
 
 	public float[] getWeights() {
@@ -32,12 +28,13 @@ public class NNInstance {
 
 	@Override
 	public String toString() {
-		return "NNInstance [structure=" + structure + ", weights=" + Arrays.toString(weights) + ", biases=" + Arrays.toString(biases) + "]";
+		return "NNInstance@" + System.identityHashCode(this) + " [weights=" + Arrays.toString(weights) + ", biases="
+				+ Arrays.toString(biases) + "]";
 	}
 
 	@Override
 	public NNInstance clone() {
-		return new NNInstance(structure, weights.clone(), biases.clone());
+		return new NNInstance(weights.clone(), biases.clone());
 	}
 
 	@Override
@@ -46,7 +43,6 @@ public class NNInstance {
 		int result = 1;
 		result = prime * result + Arrays.hashCode(biases);
 		result = prime * result + Arrays.hashCode(weights);
-		result = prime * result + Objects.hash(structure);
 		return result;
 	}
 
@@ -59,7 +55,7 @@ public class NNInstance {
 		if (getClass() != obj.getClass())
 			return false;
 		NNInstance other = (NNInstance) obj;
-		return Arrays.equals(biases, other.biases) && Objects.equals(structure, other.structure) && Arrays.equals(weights, other.weights);
+		return Arrays.equals(biases, other.biases) && Arrays.equals(weights, other.weights);
 	}
 
 }

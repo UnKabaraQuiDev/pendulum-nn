@@ -15,6 +15,11 @@
 	<dependencies>
 		<dependency>
 			<groupId>lu.kbra</groupId>
+			<artifactId>pendulum-nn-common</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>lu.kbra</groupId>
 			<artifactId>gameengine</artifactId>
 		</dependency>
 		<dependency>
@@ -29,12 +34,12 @@
 			<groupId>lu.kbra</groupId>
 			<artifactId>pclib-datastruct</artifactId>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>lu.rescue-rush</groupId>
 			<artifactId>spring-ws-ext-client</artifactId>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>

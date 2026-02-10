@@ -41,6 +41,12 @@
 		<dependencies>
 			<dependency>
 				<groupId>lu.kbra</groupId>
+				<artifactId>pendulum-nn-common</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>lu.kbra</groupId>
 				<artifactId>gameengine</artifactId>
 				<version>0.1</version>
 			</dependency>

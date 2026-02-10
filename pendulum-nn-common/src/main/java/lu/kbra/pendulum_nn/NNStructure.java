@@ -3,7 +3,7 @@ package lu.kbra.pendulum_nn;
 import java.util.Arrays;
 import java.util.Objects;
 
-public class NNStructure {
+public class NNStructure implements JacksonObject {
 
 	protected int inputCount;
 	protected int[] innerLayers;
@@ -63,8 +63,8 @@ public class NNStructure {
 
 	@Override
 	public String toString() {
-		return "NNStructure [inputCount=" + inputCount + ", innerLayers=" + Arrays.toString(innerLayers) + ", outputCount=" + outputCount
-				+ ", activationFunction=" + activationFunction + "]";
+		return "NNStructure [inputCount=" + inputCount + ", innerLayers=" + Arrays.toString(innerLayers)
+				+ ", outputCount=" + outputCount + ", activationFunction=" + activationFunction + "]";
 	}
 
 	@Override
