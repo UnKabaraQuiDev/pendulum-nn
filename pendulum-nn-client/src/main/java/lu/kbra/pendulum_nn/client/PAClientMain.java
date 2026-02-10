@@ -1,15 +1,15 @@
-package lu.kbra.pendulum_nn.server;
+package lu.kbra.pendulum_nn.client;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class WSExtMainServer {
+public class PAClientMain {
 
-	public static WSExtMainServer INSTANCE;
+	public static PAClientMain INSTANCE;
 
 	public static void main(String[] args) {
-		final SpringApplication app = new SpringApplication(WSExtMainServer.class);
+		final SpringApplication app = new SpringApplication(PAClientMain.class);
 
 		app.run(args);
 	}
