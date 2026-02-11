@@ -13,17 +13,24 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 	</properties>
 
+	<repositories>
+		<repository>
+			<id>nexus.kbra.lu-releases</id>
+			<url>https://nexus.kbra.lu/repository/maven-releases/</url>
+		</repository>
+		<repository>
+			<id>nexus.kbra.lu-snapshots</id>
+			<url>https://nexus.kbra.lu/repository/maven-snapshots/</url>
+		</repository>
+	</repositories>
+
 	<dependencies>
 		<dependency>
 			<groupId>lu.kbra</groupId>
 			<artifactId>gameengine</artifactId>
-			<version>0.1</version>
+			<version>0.1-SNAPSHOT</version>
 		</dependency>
-		<dependency>
-			<groupId>lu.pcy113</groupId>
-			<artifactId>jbcodec</artifactId>
-			<version>2.3</version>
-		</dependency>
+
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
@@ -47,7 +54,6 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-
 
 	<build>
 		<plugins>
