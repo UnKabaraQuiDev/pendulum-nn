@@ -2,17 +2,15 @@ package lu.kbra.pendulum_nn;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.swing.JFrame;
 
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 
-import lu.pcy113.pclib.datastructure.pair.Pair;
-import lu.pcy113.pclib.swing.JLineGraph;
-import lu.pcy113.pclib.swing.JLineGraph.ChartData;
-import lu.pcy113.pclib.swing.JLineGraph.RangeChartData;
+import lu.kbra.pclib.datastructure.pair.Pair;
+import lu.kbra.pclib.swing.JLineGraph;
+import lu.kbra.pclib.swing.JLineGraph.ChartData;
+import lu.kbra.pclib.swing.JLineGraph.RangeChartData;
 
 public class NNFrame extends JFrame {
 

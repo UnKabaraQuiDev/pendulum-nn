@@ -32,13 +32,12 @@ import org.joml.Vector4f;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import lu.pcy113.pclib.PCUtils;
-import lu.pcy113.pclib.async.NextTask;
-import lu.pcy113.pclib.datastructure.pair.Pairs;
-import lu.pcy113.pclib.logger.GlobalLogger;
-import lu.pcy113.pclib.pointer.prim.BooleanPointer;
-import lu.pcy113.pclib.pointer.prim.IntPointer;
-
+import lu.kbra.pclib.PCUtils;
+import lu.kbra.pclib.async.NextTask;
+import lu.kbra.pclib.datastructure.pair.Pairs;
+import lu.kbra.pclib.logger.GlobalLogger;
+import lu.kbra.pclib.pointer.prim.BooleanPointer;
+import lu.kbra.pclib.pointer.prim.IntPointer;
 import lu.kbra.pendulum_nn.attrib_arrays.SyntheticFloatAttribArray;
 import lu.kbra.pendulum_nn.attrib_arrays.SyntheticMat4fAttribArray;
 import lu.kbra.pendulum_nn.attrib_arrays.SyntheticVec4fAttribArray;
@@ -698,14 +697,6 @@ public class PALogic extends GameLogic {
 		cleanup(weightsValueArray, biasesValueArray);
 		cleanup(inputNeuronsValueArray, outputNeuronsValueArray, physicsVec4sValueArray);
 		cleanup(baseTransformValueArray, armTransformValueArray, headTransformValueArray);
-	}
-
-	protected void cleanup(Cleanupable... vs) {
-		for (Cleanupable v : vs) {
-			if (v != null) {
-				v.cleanup();
-			}
-		}
 	}
 
 	protected void clear(SyntheticFloatAttribArray array) {
