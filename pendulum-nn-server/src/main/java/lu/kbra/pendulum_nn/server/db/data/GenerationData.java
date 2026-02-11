@@ -5,8 +5,7 @@ import lu.kbra.pclib.db.autobuild.column.Column;
 import lu.kbra.pclib.db.autobuild.column.ForeignKey;
 import lu.kbra.pclib.db.autobuild.column.PrimaryKey;
 import lu.kbra.pclib.db.impl.DataBaseEntry;
-import lu.kbra.pendulum_nn.server.db.table.AgentStructureTable;
-import lu.kbra.pendulum_nn.server.db.table.SimConfigTable;
+import lu.kbra.pendulum_nn.server.db.table.SimulationTable;
 import lu.kbra.pendulum_nn.server.db.table.StartingConditionTable;
 
 public class GenerationData implements DataBaseEntry {
@@ -20,12 +19,8 @@ public class GenerationData implements DataBaseEntry {
 	protected int generation;
 
 	@Column
-	@ForeignKey(table = AgentStructureTable.class)
-	protected int structureHash;
-
-	@Column
-	@ForeignKey(table = SimConfigTable.class)
-	protected int simConfigHash;
+	@ForeignKey(table = SimulationTable.class)
+	protected long simulationId;
 
 	@Column
 	@ForeignKey(table = StartingConditionTable.class)
@@ -38,10 +33,9 @@ public class GenerationData implements DataBaseEntry {
 		this.id = id;
 	}
 
-	public GenerationData(int generation, int structureHash, int simConfigHash, int startingConditionHash) {
+	public GenerationData(int generation, long simulationId, int startingConditionHash) {
 		this.generation = generation;
-		this.structureHash = structureHash;
-		this.simConfigHash = simConfigHash;
+		this.simulationId = simulationId;
 		this.startingConditionHash = startingConditionHash;
 	}
 
@@ -53,12 +47,8 @@ public class GenerationData implements DataBaseEntry {
 		return generation;
 	}
 
-	public int getStructureHash() {
-		return structureHash;
-	}
-
-	public int getSimConfigHash() {
-		return simConfigHash;
+	public long getSimulationId() {
+		return simulationId;
 	}
 
 	public int getStartingConditionHash() {
@@ -67,9 +57,8 @@ public class GenerationData implements DataBaseEntry {
 
 	@Override
 	public String toString() {
-		return "GenerationData@" + System.identityHashCode(this) + " [id=" + id + ", generation=" + generation
-				+ ", structureHash=" + structureHash + ", simConfigHash=" + simConfigHash + ", startingConditionHash="
-				+ startingConditionHash + "]";
+		return "GenerationData@" + System.identityHashCode(this) + " [id=" + id + ", generation=" + generation + ", simulationId="
+				+ simulationId + ", startingConditionHash=" + startingConditionHash + "]";
 	}
 
 }

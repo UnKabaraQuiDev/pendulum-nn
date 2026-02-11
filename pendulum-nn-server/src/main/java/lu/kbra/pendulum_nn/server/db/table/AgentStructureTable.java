@@ -13,4 +13,8 @@ public abstract class AgentStructureTable extends DeferredDataBaseTable<AgentStr
 		super(dataBase);
 	}
 
+	public AgentStructureData byHash(int hash) {
+		return super.load(new AgentStructureData(hash));
+	}
+
 }

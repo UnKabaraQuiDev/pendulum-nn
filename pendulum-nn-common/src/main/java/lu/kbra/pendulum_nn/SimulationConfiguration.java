@@ -17,6 +17,9 @@ public class SimulationConfiguration implements JacksonObject {
 	}
 
 	public SimulationConfiguration(final boolean defaults) {
+		if (!defaults) {
+			return;
+		}
 		time = new Time();
 		physics = new Physics();
 		neuralNetworks = new NeuralNetworks();
@@ -29,7 +32,7 @@ public class SimulationConfiguration implements JacksonObject {
 		public int virtualSeconds = 300;
 		public int ups = 60;
 		public float fixedDTime = 1f / ups;
-		public boolean realTime = false;
+//		public boolean realTime = false;
 		public int frameSubSteps = 10;
 
 		public int maxIterations() {
@@ -38,7 +41,7 @@ public class SimulationConfiguration implements JacksonObject {
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(fixedDTime, frameSubSteps, realTime, ups, virtualSeconds);
+			return Objects.hash(fixedDTime, frameSubSteps, ups, virtualSeconds);
 		}
 
 		@Override
@@ -51,15 +54,14 @@ public class SimulationConfiguration implements JacksonObject {
 				return false;
 			Time other = (Time) obj;
 			return Float.floatToIntBits(fixedDTime) == Float.floatToIntBits(other.fixedDTime)
-					&& frameSubSteps == other.frameSubSteps && realTime == other.realTime && ups == other.ups
+					&& frameSubSteps == other.frameSubSteps && ups == other.ups
 					&& virtualSeconds == other.virtualSeconds;
 		}
 
 		@Override
 		public String toString() {
 			return "Time@" + System.identityHashCode(this) + " [virtualSeconds=" + virtualSeconds + ", ups=" + ups
-					+ ", fixedDTime=" + fixedDTime + ", realTime=" + realTime + ", frameSubSteps=" + frameSubSteps
-					+ ", maxIterations()=" + maxIterations() + "]";
+					+ ", fixedDTime=" + fixedDTime + ", frameSubSteps=" + frameSubSteps + "]";
 		}
 
 	}

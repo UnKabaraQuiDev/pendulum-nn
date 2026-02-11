@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.renderable;
 
 import java.util.function.IntFunction;
 

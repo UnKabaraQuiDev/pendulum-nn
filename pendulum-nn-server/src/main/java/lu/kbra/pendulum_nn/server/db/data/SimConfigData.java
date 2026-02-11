@@ -26,7 +26,7 @@ public class SimConfigData implements DataBaseEntry {
 		this.config = config;
 	}
 
-	public long getHash() {
+	public int getHash() {
 		return hash;
 	}
 

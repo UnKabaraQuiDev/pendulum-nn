@@ -5,7 +5,6 @@ import lu.kbra.pclib.db.autobuild.column.Column;
 import lu.kbra.pclib.db.autobuild.column.ForeignKey;
 import lu.kbra.pclib.db.autobuild.column.PrimaryKey;
 import lu.kbra.pclib.db.impl.DataBaseEntry;
-import lu.kbra.pendulum_nn.NNInstance;
 import lu.kbra.pendulum_nn.server.db.table.GenerationTable;
 
 public class AgentPerformanceData implements DataBaseEntry {
@@ -16,7 +15,8 @@ public class AgentPerformanceData implements DataBaseEntry {
 	protected long id;
 
 	@Column
-	protected NNInstance instance;
+	@ForeignKey(table = AgentInstanceTable.class)
+	protected int instanceHash;
 
 	@Column
 	@ForeignKey(table = GenerationTable.class)
@@ -32,8 +32,8 @@ public class AgentPerformanceData implements DataBaseEntry {
 		this.id = id;
 	}
 
-	public AgentPerformanceData(NNInstance instance, long generationId, double score) {
-		this.instance = instance;
+	public AgentPerformanceData(int instanceHash, long generationId, double score) {
+		this.instanceHash = instanceHash;
 		this.generationId = generationId;
 		this.score = score;
 	}
@@ -42,8 +42,8 @@ public class AgentPerformanceData implements DataBaseEntry {
 		return id;
 	}
 
-	public NNInstance getInstance() {
-		return instance;
+	public int getInstanceHash() {
+		return instanceHash;
 	}
 
 	public long getGenerationId() {
@@ -56,8 +56,8 @@ public class AgentPerformanceData implements DataBaseEntry {
 
 	@Override
 	public String toString() {
-		return "AgentPerformanceData@" + System.identityHashCode(this) + " [id=" + id + ", instance=" + instance
-				+ ", generationId=" + generationId + ", score=" + score + "]";
+		return "AgentPerformanceData@" + System.identityHashCode(this) + " [id=" + id + ", instanceHash=" + instanceHash + ", generationId="
+				+ generationId + ", score=" + score + "]";
 	}
 
 }

@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.swing;
 
 import java.awt.Color;
 import java.awt.Graphics;

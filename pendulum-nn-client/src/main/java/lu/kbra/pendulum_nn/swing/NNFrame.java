@@ -1,4 +1,4 @@
-package lu.kbra.pendulum_nn;
+package lu.kbra.pendulum_nn.swing;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
