@@ -11,7 +11,7 @@
 		<java.version>17</java.version>
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
-		<pclib.version>1.0.1</pclib.version>
+		<pclib.version>1.0.2-SNAPSHOT</pclib.version>
 	</properties>
 
 	<repositories>
@@ -25,6 +25,16 @@
 		</repository>
 	</repositories>
 
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>lu.kbra</groupId>
+				<artifactId>pclib</artifactId>
+				<version>${pclib.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
 		<dependency>
 			<groupId>lu.kbra</groupId>
@@ -34,32 +44,26 @@
 		<dependency>
 			<groupId>lu.kbra</groupId>
 			<artifactId>pclib-concurrency</artifactId>
-			<version>${pclib.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>lu.kbra</groupId>
 			<artifactId>pclib-common</artifactId>
-			<version>${pclib.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>lu.kbra</groupId>
 			<artifactId>pclib-pointer</artifactId>
-			<version>${pclib.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>lu.kbra</groupId>
 			<artifactId>pclib-logger</artifactId>
-			<version>${pclib.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>lu.kbra</groupId>
 			<artifactId>pclib-swing</artifactId>
-			<version>${pclib.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>lu.kbra</groupId>
 			<artifactId>pclib-datastruct</artifactId>
-			<version>${pclib.version}</version>
 		</dependency>
 
 		<dependency>
