@@ -28,9 +28,12 @@ public class SimulationConfiguration {
 
 		public int virtualSeconds = 300;
 		public int ups = 60;
-		public float fixedDTime = 1f / ups;
 		public boolean realTime = false;
 		public int frameSubSteps = 10;
+
+		public float fixedDTime() {
+			return 1f / ups;
+		}
 
 		public int maxIterations() {
 			return ups * virtualSeconds;
@@ -38,9 +41,8 @@ public class SimulationConfiguration {
 
 		@Override
 		public String toString() {
-			return "Time@" + System.identityHashCode(this) + " [virtualSeconds=" + virtualSeconds + ", ups=" + ups + ", fixedDTime="
-					+ fixedDTime + ", realTime=" + realTime + ", frameSubSteps=" + frameSubSteps + ", maxIterations()=" + maxIterations()
-					+ "]";
+			return "Time [virtualSeconds=" + virtualSeconds + ", ups=" + ups + ", realTime=" + realTime + ", frameSubSteps=" + frameSubSteps
+					+ ", fixedDTime()=" + fixedDTime() + ", maxIterations()=" + maxIterations() + "]";
 		}
 
 	}

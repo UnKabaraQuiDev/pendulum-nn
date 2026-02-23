@@ -27,6 +27,16 @@
       </plugin>
     </plugins>
   </build>
+  <repositories>
+    <repository>
+      <id>nexus.kbra.lu-releases</id>
+      <url>https://nexus.kbra.lu/repository/maven-releases/</url>
+    </repository>
+    <repository>
+      <id>nexus.kbra.lu-snapshots</id>
+      <url>https://nexus.kbra.lu/repository/maven-snapshots/</url>
+    </repository>
+  </repositories>
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
@@ -41,8 +51,20 @@
       </exclusions>
     </dependency>
   </dependencies>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>lu.kbra</groupId>
+        <artifactId>pclib</artifactId>
+        <version>${pclib.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <properties>
     <maven.compiler.target>${java.version}</maven.compiler.target>
+    <pclib.version>1.0.2-SNAPSHOT</pclib.version>
     <java.version>17</java.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
   </properties>

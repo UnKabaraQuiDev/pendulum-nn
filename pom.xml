@@ -31,6 +31,8 @@
 				<groupId>lu.kbra</groupId>
 				<artifactId>pclib</artifactId>
 				<version>${pclib.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
