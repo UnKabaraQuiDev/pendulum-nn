@@ -1,4 +1,10 @@
-# Pendulum Neural Network Project — PALogic Documentation
+# Pendulum Neural Network Project
+
+---
+
+![img](https://raw.githubusercontent.com/UnKabaraQuiDev/pendulum-nn/refs/heads/main/imgs/breakthrough.png)
+
+---
 
 ## 1. Project Type
 This project is a custom GPU-based simulation and learning system.  
@@ -35,7 +41,7 @@ Agents evolve over generations using selection, crossover, and mutation, improvi
 
 ### Execution Model
 - GPU-first architecture
-- Parallel simulation of up to 10,000 agents
+- Parallel simulation of up to >10,000 agents
 - Fixed-timestep physics
 
 ---
@@ -48,7 +54,7 @@ The system is composed of three main stages per simulation step:
 2. **Physics Simulation + Fitness Evaluation (GPU)**
 3. **Evolutionary Selection and Reproduction (CPU)**
 
-Rendering is optional and used mainly for debugging and visualization.
+![img](https://raw.githubusercontent.com/UnKabaraQuiDev/pendulum-nn/refs/heads/main/imgs/schema.svg)
 
 ---
 
@@ -234,15 +240,3 @@ The architecture is flexible and can be extended to other control problems beyon
 - Java runtime with OpenGL bindings
 
 No external ML frameworks are required.
-
----
-
-## 18. Submission & Usage
-
-The project consists of:
-- Java source code
-- GLSL compute shaders
-- Optional saved generations (JSON)
-- Rendering assets (meshes)
-
-The system runs as a standalone application and does not require training datasets.
