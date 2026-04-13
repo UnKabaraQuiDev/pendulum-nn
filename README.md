@@ -6,6 +6,41 @@
 
 ---
 
+# How to run
+## Requirements
+
+- Java 17+
+- Maven
+
+### Option 1: Using Maven
+
+```bash
+mvn clean compile exec:java
+````
+
+### Option 2: Build and run manually
+
+```bash
+mvn clean package
+java -jar target/pendulum-nn.jar
+```
+
+## Configuration
+
+On the first run, it will create a config inside `config/`, edit it or leave it as-is and restart the program.
+
+## LWJGL Natives
+
+LWJGL requires native libraries depending on your OS.
+
+Supported systems:
+
+* Linux
+* (probably works on windows too but hasn't been tested)
+
+---
+
+# Documentation
 ## 1. Project Type
 This project is a custom GPU-based simulation and learning system.  
 It combines real-time physics simulation, neural networks, and a genetic algorithm.  
