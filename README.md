@@ -16,14 +16,16 @@
 
 ```bash
 mvn clean compile exec:java
-````
-
-### Option 2: Build and run manually
-
-```bash
-mvn clean package
-java -jar target/pendulum-nn.jar
 ```
+
+You may need to compile the natives for your current OS:
+```bash
+git clone https://github.com/UnKabaraQuiDev/StandaloneGameEngine.git ../gameengine/
+cd ../gameengine/
+mvn install -DskipTests
+```
+
+Then retry building the project
 
 ## Configuration
 
