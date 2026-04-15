@@ -15,6 +15,8 @@
 ### Option 1: Using Maven
 
 ```bash
+git clone https://github.com/UnKabaraQuiDev/pendulum-nn.git pendulum-nn
+cd pendulum-nn
 mvn clean compile exec:java
 ```
 
